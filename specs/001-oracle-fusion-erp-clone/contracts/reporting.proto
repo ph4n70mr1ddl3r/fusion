@@ -1,0 +1,230 @@
+// Financial Reporting Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.reporting.v1;
+
+import "common.proto";
+
+// === Standard Reports ===
+
+service StandardReportService {
+  rpc GetIncomeStatement(IncomeStatementRequest) returns (IncomeStatement);
+  rpc GetBalanceSheet(BalanceSheetRequest) returns (BalanceSheet);
+  rpc GetCashFlowStatement(CashFlowStatementRequest) returns (CashFlowStatement);
+}
+
+message IncomeStatementRequest {
+  string period_id = 1;
+  string comparison_period_id = 2; // Optional: for period-over-period comparison
+  string legal_entity_id = 3;      // Optional: filter by entity
+}
+
+message IncomeStatement {
+  string period_name = 1;
+  repeated IncomeStatementSection sections = 2;
+  fusion.common.v1.Money total_revenue = 3;
+  fusion.common.v1.Money total_expenses = 4;
+  fusion.common.v1.Money net_income = 5;
+  // Optional comparison fields
+  repeated IncomeStatementSection comparison_sections = 6;
+  string comparison_period_name = 7;
+}
+
+message IncomeStatementSection {
+  string section_type = 1; // "revenue", "cost_of_goods", "operating_expense", etc.
+  repeated IncomeStatementLine lines = 2;
+  fusion.common.v1.Money section_total = 3;
+}
+
+message IncomeStatementLine {
+  string account_code = 1;
+  string account_name = 2;
+  fusion.common.v1.Money amount = 3;
+  fusion.common.v1.Money comparison_amount = 4; // Optional
+}
+
+message BalanceSheetRequest {
+  string as_of_date = 1; // ISO 8601 date
+  string legal_entity_id = 2;
+}
+
+message BalanceSheet {
+  string as_of_date = 1;
+  repeated BalanceSheetSection assets = 2;
+  repeated BalanceSheetSection liabilities = 3;
+  repeated BalanceSheetSection equity = 4;
+  fusion.common.v1.Money total_assets = 5;
+  fusion.common.v1.Money total_liabilities = 6;
+  fusion.common.v1.Money total_equity = 7;
+}
+
+message BalanceSheetSection {
+  string section_name = 1; // "current_assets", "fixed_assets", etc.
+  repeated BalanceSheetLine lines = 2;
+  fusion.common.v1.Money section_total = 3;
+}
+
+message BalanceSheetLine {
+  string account_code = 1;
+  string account_name = 2;
+  fusion.common.v1.Money amount = 3;
+}
+
+message CashFlowStatementRequest {
+  string period_id = 1;
+  string legal_entity_id = 2;
+}
+
+message CashFlowStatement {
+  string period_name = 1;
+  repeated CashFlowSection sections = 2;
+  fusion.common.v1.Money net_change_in_cash = 3;
+  fusion.common.v1.Money beginning_cash = 4;
+  fusion.common.v1.Money ending_cash = 5;
+}
+
+message CashFlowSection {
+  string section_type = 1; // "operating", "investing", "financing"
+  repeated CashFlowLine lines = 2;
+  fusion.common.v1.Money section_total = 3;
+}
+
+message CashFlowLine {
+  string description = 1;
+  fusion.common.v1.Money amount = 2;
+}
+
+// === Dashboard ===
+
+service DashboardService {
+  rpc GetFinancialDashboard(FinancialDashboardRequest) returns (FinancialDashboard);
+}
+
+message FinancialDashboardRequest {
+  string period_id = 1;    // Current period context
+  string legal_entity_id = 2;
+}
+
+message FinancialDashboard {
+  string period_name = 1;
+  repeated DashboardKpi kpis = 2;
+  repeated DashboardAlert alerts = 3;
+}
+
+message DashboardKpi {
+  string name = 1;         // e.g., "Total Revenue", "Cash Position", "AR Aging 90+"
+  fusion.common.v1.Money value = 2;
+  string trend = 3;        // "up", "down", "flat"
+  string change_percentage = 4;
+}
+
+message DashboardAlert {
+  string id = 1;
+  string title = 2;
+  string severity = 3;     // "info", "warning", "critical"
+  string message = 4;
+  string entity_type = 5;
+  string entity_id = 6;
+}
+
+// === Custom Report Builder ===
+
+service CustomReportService {
+  rpc CreateReport(CreateReportRequest) returns (SavedReport);
+  rpc GetReport(GetReportRequest) returns (SavedReport);
+  rpc ListReports(ListReportsRequest) returns (ListReportsResponse);
+  rpc RunReport(RunReportRequest) returns (ReportResult);
+  rpc DeleteReport(DeleteReportRequest) returns (fusion.common.v1.Empty);
+}
+
+message SavedReport {
+  string id = 1;
+  string name = 2;
+  ReportType report_type = 3;
+  string definition = 4;   // JSON string with fields, filters, groupings
+  string created_by = 5;
+  bool is_shared = 6;
+  fusion.common.v1.AuditInfo audit_info = 7;
+}
+
+enum ReportType {
+  REPORT_TYPE_UNSPECIFIED = 0;
+  REPORT_TYPE_INCOME_STATEMENT = 1;
+  REPORT_TYPE_BALANCE_SHEET = 2;
+  REPORT_TYPE_CASH_FLOW = 3;
+  REPORT_TYPE_TRIAL_BALANCE = 4;
+  REPORT_TYPE_AGING = 5;
+  REPORT_TYPE_CUSTOM = 6;
+}
+
+message CreateReportRequest {
+  string name = 1;
+  ReportType report_type = 2;
+  string definition = 3; // JSON
+  bool is_shared = 4;
+}
+
+message GetReportRequest {
+  string id = 1;
+}
+
+message ListReportsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  ReportType type_filter = 2;
+}
+
+message ListReportsResponse {
+  repeated SavedReport reports = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message RunReportRequest {
+  string report_id = 1;
+  string period_id = 2;
+  map<string, string> parameter_overrides = 3;
+}
+
+message ReportResult {
+  repeated string columns = 1;
+  repeated ReportRow rows = 2;
+  repeated ReportTotals totals = 3;
+}
+
+message ReportRow {
+  repeated string values = 1; // String representation of each cell
+}
+
+message ReportTotals {
+  repeated string values = 1;
+}
+
+message DeleteReportRequest {
+  string id = 1;
+}
+
+// === Export ===
+
+service ReportExportService {
+  rpc ExportReport(ExportReportRequest) returns (ExportReportResponse);
+}
+
+message ExportReportRequest {
+  string report_id = 1;
+  ExportFormat format = 2;
+  string period_id = 3;
+}
+
+enum ExportFormat {
+  EXPORT_FORMAT_UNSPECIFIED = 0;
+  EXPORT_FORMAT_PDF = 1;
+  EXPORT_FORMAT_XLSX = 2;
+  EXPORT_FORMAT_CSV = 3;
+}
+
+message ExportReportResponse {
+  string download_url = 1; // Pre-signed URL to download the exported file
+  string filename = 2;
+  int64 file_size_bytes = 3;
+}

@@ -1,0 +1,277 @@
+// Accounts Payable Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.ap.v1;
+
+import "common.proto";
+
+// === Vendor Management ===
+
+service VendorService {
+  rpc CreateVendor(CreateVendorRequest) returns (Vendor);
+  rpc GetVendor(GetVendorRequest) returns (Vendor);
+  rpc ListVendors(ListVendorsRequest) returns (ListVendorsResponse);
+  rpc UpdateVendor(UpdateVendorRequest) returns (Vendor);
+}
+
+message Vendor {
+  string id = 1;
+  string vendor_code = 2;
+  string name = 3;
+  fusion.common.v1.Address address = 4;
+  string payment_terms = 5;
+  string tax_id = 6;
+  string contact_email = 7;
+  string contact_phone = 8;
+  bool is_active = 9;
+  fusion.common.v1.AuditInfo audit_info = 10;
+}
+
+message CreateVendorRequest {
+  string vendor_code = 1;
+  string name = 2;
+  fusion.common.v1.Address address = 3;
+  string payment_terms = 4;
+  string tax_id = 5;
+  string contact_email = 6;
+  string contact_phone = 7;
+}
+
+message GetVendorRequest {
+  string id = 1;
+}
+
+message ListVendorsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  bool active_only = 2;
+  string name_contains = 3;
+}
+
+message ListVendorsResponse {
+  repeated Vendor vendors = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message UpdateVendorRequest {
+  string id = 1;
+  string name = 2;
+  fusion.common.v1.Address address = 3;
+  string payment_terms = 4;
+  string contact_email = 5;
+  string contact_phone = 6;
+}
+
+// === AP Invoice ===
+
+service ApInvoiceService {
+  rpc CreateInvoice(CreateApInvoiceRequest) returns (ApInvoice);
+  rpc GetInvoice(GetApInvoiceRequest) returns (ApInvoice);
+  rpc ListInvoices(ListApInvoicesRequest) returns (ListApInvoicesResponse);
+  rpc ApproveInvoice(ApproveApInvoiceRequest) returns (ApInvoice);
+  rpc PostInvoice(PostApInvoiceRequest) returns (ApInvoice);
+}
+
+message ApInvoice {
+  string id = 1;
+  string invoice_number = 2;
+  string vendor_id = 3;
+  string invoice_date = 4;
+  string due_date = 5;
+  string description = 6;
+  fusion.common.v1.Money subtotal = 7;
+  fusion.common.v1.Money tax_amount = 8;
+  fusion.common.v1.Money total_amount = 9;
+  string currency_code = 10;
+  ApInvoiceStatus status = 11;
+  ApPaymentStatus payment_status = 12;
+  fusion.common.v1.Money paid_amount = 13;
+  string po_reference = 14;
+  string gl_journal_entry_id = 15;
+  repeated ApInvoiceLine lines = 16;
+  fusion.common.v1.AuditInfo audit_info = 17;
+}
+
+message ApInvoiceLine {
+  string id = 1;
+  int32 line_number = 2;
+  string description = 3;
+  string quantity = 4;          // Decimal as string to avoid precision loss
+  string unit_price = 5;
+  string line_total = 6;
+  string tax_code = 7;
+  string gl_account_id = 8;
+}
+
+enum ApInvoiceStatus {
+  AP_INVOICE_STATUS_UNSPECIFIED = 0;
+  AP_INVOICE_STATUS_DRAFT = 1;
+  AP_INVOICE_STATUS_PENDING_APPROVAL = 2;
+  AP_INVOICE_STATUS_APPROVED = 3;
+  AP_INVOICE_STATUS_POSTED = 4;
+  AP_INVOICE_STATUS_PAID = 5;
+  AP_INVOICE_STATUS_CANCELLED = 6;
+}
+
+enum ApPaymentStatus {
+  AP_PAYMENT_STATUS_UNSPECIFIED = 0;
+  AP_PAYMENT_STATUS_UNPAID = 1;
+  AP_PAYMENT_STATUS_PARTIALLY_PAID = 2;
+  AP_PAYMENT_STATUS_PAID = 3;
+}
+
+message CreateApInvoiceRequest {
+  string vendor_id = 1;
+  string invoice_date = 2;
+  string due_date = 3;
+  string description = 4;
+  string currency_code = 5;
+  string po_reference = 6;
+  repeated CreateApInvoiceLineRequest lines = 7;
+}
+
+message CreateApInvoiceLineRequest {
+  string description = 1;
+  string quantity = 2;
+  string unit_price = 3;
+  string tax_code = 4;
+  string gl_account_id = 5;
+}
+
+message GetApInvoiceRequest {
+  string id = 1;
+}
+
+message ListApInvoicesRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  ApInvoiceStatus status_filter = 2;
+  string vendor_id = 3;
+  string date_from = 4;
+  string date_to = 5;
+}
+
+message ListApInvoicesResponse {
+  repeated ApInvoice invoices = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message ApproveApInvoiceRequest {
+  string id = 1;
+}
+
+message PostApInvoiceRequest {
+  string id = 1;
+}
+
+// === Payment Processing ===
+
+service PaymentService {
+  rpc CreatePayment(CreatePaymentRequest) returns (Payment);
+  rpc GetPayment(GetPaymentRequest) returns (Payment);
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+  rpc ProcessPaymentBatch(ProcessPaymentBatchRequest) returns (ProcessPaymentBatchResponse);
+}
+
+message Payment {
+  string id = 1;
+  string payment_number = 2;
+  string vendor_id = 3;
+  string payment_date = 4;
+  fusion.common.v1.Money amount = 5;
+  PaymentMethod payment_method = 6;
+  PaymentStatus status = 7;
+  string gl_journal_entry_id = 8;
+  repeated PaymentAllocation allocations = 9;
+  fusion.common.v1.AuditInfo audit_info = 10;
+}
+
+message PaymentAllocation {
+  string invoice_id = 1;
+  fusion.common.v1.Money amount = 2;
+}
+
+enum PaymentMethod {
+  PAYMENT_METHOD_UNSPECIFIED = 0;
+  PAYMENT_METHOD_CHECK = 1;
+  PAYMENT_METHOD_WIRE_TRANSFER = 2;
+  PAYMENT_METHOD_ACH = 3;
+  PAYMENT_METHOD_CASH = 4;
+}
+
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_DRAFT = 1;
+  PAYMENT_STATUS_ISSUED = 2;
+  PAYMENT_STATUS_RECONCILED = 3;
+  PAYMENT_STATUS_CANCELLED = 4;
+}
+
+message CreatePaymentRequest {
+  string vendor_id = 1;
+  string payment_date = 2;
+  fusion.common.v1.Money amount = 3;
+  PaymentMethod payment_method = 4;
+  repeated PaymentAllocation allocations = 5;
+}
+
+message GetPaymentRequest {
+  string id = 1;
+}
+
+message ListPaymentsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  string vendor_id = 2;
+  PaymentStatus status_filter = 3;
+  string date_from = 4;
+  string date_to = 5;
+}
+
+message ListPaymentsResponse {
+  repeated Payment payments = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message ProcessPaymentBatchRequest {
+  repeated string invoice_ids = 1; // Invoices to pay
+  PaymentMethod payment_method = 2;
+  string payment_date = 3;
+}
+
+message ProcessPaymentBatchResponse {
+  repeated Payment payments = 1;
+}
+
+// === AP Aging Report ===
+
+service ApAgingService {
+  rpc GetApAging(ApAgingRequest) returns (ApAgingReport);
+}
+
+message ApAgingReport {
+  string as_of_date = 1;
+  repeated ApAgingLine lines = 2;
+  ApAgingTotals totals = 3;
+}
+
+message ApAgingLine {
+  string vendor_id = 1;
+  string vendor_name = 2;
+  fusion.common.v1.Money current = 3;
+  fusion.common.v1.Money aging_30 = 4;
+  fusion.common.v1.Money aging_60 = 5;
+  fusion.common.v1.Money aging_90_plus = 6;
+  fusion.common.v1.Money total = 7;
+}
+
+message ApAgingTotals {
+  fusion.common.v1.Money current = 1;
+  fusion.common.v1.Money aging_30 = 2;
+  fusion.common.v1.Money aging_60 = 3;
+  fusion.common.v1.Money aging_90_plus = 4;
+  fusion.common.v1.Money total = 5;
+}
+
+message ApAgingRequest {
+  string as_of_date = 1;
+}

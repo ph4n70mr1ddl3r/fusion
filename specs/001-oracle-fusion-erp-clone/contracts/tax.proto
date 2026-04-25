@@ -1,0 +1,119 @@
+// Tax Management Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.tax.v1;
+
+import "common.proto";
+
+// === Tax Rate Management ===
+
+service TaxRateService {
+  rpc CreateTaxRate(CreateTaxRateRequest) returns (TaxRate);
+  rpc GetTaxRate(GetTaxRateRequest) returns (TaxRate);
+  rpc ListTaxRates(ListTaxRatesRequest) returns (ListTaxRatesResponse);
+  rpc UpdateTaxRate(UpdateTaxRateRequest) returns (TaxRate);
+}
+
+message TaxRate {
+  string id = 1;
+  string tax_code = 2;
+  string name = 3;
+  string jurisdiction = 4;
+  string rate_percentage = 5; // Decimal as string, e.g., "8.25"
+  string tax_category = 6;    // "sales", "vat", "gst", etc.
+  string effective_from = 7;
+  string effective_to = 8;
+  bool is_active = 9;
+  fusion.common.v1.AuditInfo audit_info = 10;
+}
+
+message CreateTaxRateRequest {
+  string tax_code = 1;
+  string name = 2;
+  string jurisdiction = 3;
+  string rate_percentage = 4;
+  string tax_category = 5;
+  string effective_from = 6;
+  string effective_to = 7;
+}
+
+message GetTaxRateRequest {
+  string id = 1;
+}
+
+message ListTaxRatesRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  string jurisdiction = 2;
+  string tax_category = 3;
+  bool active_only = 4;
+}
+
+message ListTaxRatesResponse {
+  repeated TaxRate rates = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message UpdateTaxRateRequest {
+  string id = 1;
+  string name = 2;
+  string rate_percentage = 3;
+  string effective_to = 4;
+}
+
+// === Tax Calculation ===
+
+service TaxCalculationService {
+  rpc CalculateTax(CalculateTaxRequest) returns (CalculateTaxResponse);
+}
+
+message CalculateTaxRequest {
+  string tax_code = 1;
+  fusion.common.v1.Money taxable_amount = 2;
+  string transaction_date = 3; // For effective date lookup
+}
+
+message CalculateTaxResponse {
+  string tax_rate_id = 1;
+  string tax_code = 2;
+  string rate_percentage = 3;
+  fusion.common.v1.Money taxable_amount = 4;
+  fusion.common.v1.Money tax_amount = 5;
+}
+
+// === Tax Reporting ===
+
+service TaxReportService {
+  rpc GetTaxReport(TaxReportRequest) returns (TaxReport);
+}
+
+message TaxReportRequest {
+  int32 period_year = 1;
+  int32 period_number = 2;
+  string jurisdiction = 3; // Optional filter
+  string tax_category = 4; // Optional filter
+}
+
+message TaxReport {
+  int32 period_year = 1;
+  int32 period_number = 2;
+  repeated TaxReportLine lines = 3;
+  TaxReportTotals totals = 4;
+}
+
+message TaxReportLine {
+  string jurisdiction = 1;
+  string tax_category = 2;
+  string tax_code = 3;
+  fusion.common.v1.Money taxable_amount = 4;
+  fusion.common.v1.Money tax_collected = 5;  // From AR invoices
+  fusion.common.v1.Money tax_owed = 6;       // From AP invoices
+  fusion.common.v1.Money net_tax = 7;        // collected - owed
+}
+
+message TaxReportTotals {
+  fusion.common.v1.Money total_tax_collected = 1;
+  fusion.common.v1.Money total_tax_owed = 2;
+  fusion.common.v1.Money total_net_tax = 3;
+}

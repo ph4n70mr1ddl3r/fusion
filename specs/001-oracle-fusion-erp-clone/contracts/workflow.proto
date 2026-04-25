@@ -1,0 +1,191 @@
+// Workflow & Approval Management Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.workflow.v1;
+
+import "common.proto";
+
+// === Approval Workflow Configuration ===
+
+service ApprovalWorkflowService {
+  rpc CreateWorkflow(CreateWorkflowRequest) returns (ApprovalWorkflow);
+  rpc GetWorkflow(GetWorkflowRequest) returns (ApprovalWorkflow);
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  rpc UpdateWorkflow(UpdateWorkflowRequest) returns (ApprovalWorkflow);
+  rpc DeactivateWorkflow(DeactivateWorkflowRequest) returns (ApprovalWorkflow);
+}
+
+message ApprovalWorkflow {
+  string id = 1;
+  string name = 2;
+  string module = 3;          // "gl", "ap", "ar", "procurement"
+  string trigger_type = 4;    // "journal_entry", "invoice", "purchase_order"
+  string condition = 5;       // JSON: { "amount_gt": 10000, "department": "IT" }
+  bool is_active = 6;
+  repeated ApprovalStep steps = 7;
+  fusion.common.v1.AuditInfo audit_info = 8;
+}
+
+message ApprovalStep {
+  string id = 1;
+  int32 step_order = 2;
+  ApproverType approver_type = 3;
+  string approver_id = 4;        // User or Role ID
+  int32 timeout_minutes = 5;
+  string escalation_approver_id = 6;
+}
+
+enum ApproverType {
+  APPROVER_TYPE_UNSPECIFIED = 0;
+  APPROVER_TYPE_USER = 1;
+  APPROVER_TYPE_ROLE = 2;
+  APPROVER_TYPE_MANAGER_OF_SUBMITTER = 3;
+}
+
+message CreateWorkflowRequest {
+  string name = 1;
+  string module = 2;
+  string trigger_type = 3;
+  string condition = 4;
+  repeated CreateApprovalStepRequest steps = 5;
+}
+
+message CreateApprovalStepRequest {
+  int32 step_order = 1;
+  ApproverType approver_type = 2;
+  string approver_id = 3;
+  int32 timeout_minutes = 4;
+  string escalation_approver_id = 5;
+}
+
+message GetWorkflowRequest {
+  string id = 1;
+}
+
+message ListWorkflowsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  string module = 2;
+  string trigger_type = 3;
+  bool active_only = 4;
+}
+
+message ListWorkflowsResponse {
+  repeated ApprovalWorkflow workflows = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message UpdateWorkflowRequest {
+  string id = 1;
+  string name = 2;
+  string condition = 3;
+  repeated CreateApprovalStepRequest steps = 4;
+}
+
+message DeactivateWorkflowRequest {
+  string id = 1;
+}
+
+// === Approval Instance Management ===
+
+service ApprovalInstanceService {
+  rpc SubmitForApproval(SubmitForApprovalRequest) returns (ApprovalInstance);
+  rpc GetApprovalInstance(GetApprovalInstanceRequest) returns (ApprovalInstance);
+  rpc ListPendingApprovals(ListPendingApprovalsRequest) returns (ListPendingApprovalsResponse);
+  rpc Approve(ApproveRequest) returns (ApprovalInstance);
+  rpc Reject(RejectRequest) returns (ApprovalInstance);
+  rpc Delegate(DelegateRequest) returns (ApprovalInstance);
+  rpc GetApprovalHistory(GetApprovalHistoryRequest) returns (ApprovalHistory);
+}
+
+message ApprovalInstance {
+  string id = 1;
+  string workflow_id = 2;
+  string entity_type = 3;
+  string entity_id = 4;
+  int32 current_step = 5;
+  ApprovalInstanceStatus status = 6;
+  string submitted_by = 7;
+  string submitted_at = 8;
+  string completed_at = 9;
+  repeated ApprovalAction actions = 10;
+}
+
+enum ApprovalInstanceStatus {
+  APPROVAL_INSTANCE_STATUS_UNSPECIFIED = 0;
+  APPROVAL_INSTANCE_STATUS_PENDING = 1;
+  APPROVAL_INSTANCE_STATUS_APPROVED = 2;
+  APPROVAL_INSTANCE_STATUS_REJECTED = 3;
+  APPROVAL_INSTANCE_STATUS_ESCALATED = 4;
+  APPROVAL_INSTANCE_STATUS_CANCELLED = 5;
+}
+
+message ApprovalAction {
+  string id = 1;
+  int32 step_number = 2;
+  string approver_id = 3;
+  ApprovalActionType action = 4;
+  string delegated_to = 5;
+  string comment = 6;
+  string acted_at = 7;
+}
+
+enum ApprovalActionType {
+  APPROVAL_ACTION_TYPE_UNSPECIFIED = 0;
+  APPROVAL_ACTION_TYPE_APPROVE = 1;
+  APPROVAL_ACTION_TYPE_REJECT = 2;
+  APPROVAL_ACTION_TYPE_DELEGATE = 3;
+  APPROVAL_ACTION_TYPE_ESCALATE = 4;
+}
+
+message SubmitForApprovalRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  string submitted_by = 3;
+}
+
+message GetApprovalInstanceRequest {
+  string id = 1;
+}
+
+message ListPendingApprovalsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  string approver_id = 2;
+  string module = 3;
+}
+
+message ListPendingApprovalsResponse {
+  repeated ApprovalInstance instances = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message ApproveRequest {
+  string instance_id = 1;
+  string approver_id = 2;
+  string comment = 3;
+}
+
+message RejectRequest {
+  string instance_id = 1;
+  string approver_id = 2;
+  string reason = 3;
+}
+
+message DelegateRequest {
+  string instance_id = 1;
+  string from_approver_id = 2;
+  string to_approver_id = 3;
+  string comment = 4;
+}
+
+message GetApprovalHistoryRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+}
+
+message ApprovalHistory {
+  string entity_type = 1;
+  string entity_id = 2;
+  repeated ApprovalAction actions = 3;
+}

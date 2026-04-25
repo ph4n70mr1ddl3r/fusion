@@ -1,0 +1,233 @@
+// Procurement Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.procurement.v1;
+
+import "common.proto";
+
+// === Purchase Requisitions ===
+
+service RequisitionService {
+  rpc CreateRequisition(CreateRequisitionRequest) returns (PurchaseRequisition);
+  rpc GetRequisition(GetRequisitionRequest) returns (PurchaseRequisition);
+  rpc ListRequisitions(ListRequisitionsRequest) returns (ListRequisitionsResponse);
+  rpc ApproveRequisition(ApproveRequisitionRequest) returns (PurchaseRequisition);
+  rpc RejectRequisition(RejectRequisitionRequest) returns (PurchaseRequisition);
+}
+
+message PurchaseRequisition {
+  string id = 1;
+  string requisition_number = 2;
+  string requester_id = 3;
+  string department = 4;
+  string description = 5;
+  RequisitionStatus status = 6;
+  fusion.common.v1.Money total_estimated = 7;
+  string approved_by = 8;
+  repeated RequisitionLine lines = 9;
+  fusion.common.v1.AuditInfo audit_info = 10;
+}
+
+message RequisitionLine {
+  string id = 1;
+  int32 line_number = 2;
+  string description = 3;
+  string quantity = 4;
+  string estimated_unit_price = 5;
+  string category = 6;
+  string preferred_vendor_id = 7;
+}
+
+enum RequisitionStatus {
+  REQUISITION_STATUS_UNSPECIFIED = 0;
+  REQUISITION_STATUS_DRAFT = 1;
+  REQUISITION_STATUS_PENDING_APPROVAL = 2;
+  REQUISITION_STATUS_APPROVED = 3;
+  REQUISITION_STATUS_REJECTED = 4;
+  REQUISITION_STATUS_CONVERTED = 5;
+  REQUISITION_STATUS_CANCELLED = 6;
+}
+
+message CreateRequisitionRequest {
+  string department = 1;
+  string description = 2;
+  repeated CreateRequisitionLineRequest lines = 3;
+}
+
+message CreateRequisitionLineRequest {
+  string description = 1;
+  string quantity = 2;
+  string estimated_unit_price = 3;
+  string category = 4;
+  string preferred_vendor_id = 5;
+}
+
+message GetRequisitionRequest {
+  string id = 1;
+}
+
+message ListRequisitionsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  RequisitionStatus status_filter = 2;
+  string requester_id = 3;
+}
+
+message ListRequisitionsResponse {
+  repeated PurchaseRequisition requisitions = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message ApproveRequisitionRequest {
+  string id = 1;
+}
+
+message RejectRequisitionRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+// === Purchase Orders ===
+
+service PurchaseOrderService {
+  rpc CreatePurchaseOrder(CreatePurchaseOrderRequest) returns (PurchaseOrder);
+  rpc GetPurchaseOrder(GetPurchaseOrderRequest) returns (PurchaseOrder);
+  rpc ListPurchaseOrders(ListPurchaseOrdersRequest) returns (ListPurchaseOrdersResponse);
+  rpc ClosePurchaseOrder(ClosePurchaseOrderRequest) returns (PurchaseOrder);
+}
+
+message PurchaseOrder {
+  string id = 1;
+  string po_number = 2;
+  string vendor_id = 3;
+  string requisition_id = 4;
+  string order_date = 5;
+  string expected_delivery_date = 6;
+  PurchaseOrderStatus status = 7;
+  fusion.common.v1.Money subtotal = 8;
+  fusion.common.v1.Money tax_amount = 9;
+  fusion.common.v1.Money total_amount = 10;
+  string currency_code = 11;
+  repeated PurchaseOrderLine lines = 12;
+  fusion.common.v1.AuditInfo audit_info = 13;
+}
+
+message PurchaseOrderLine {
+  string id = 1;
+  int32 line_number = 2;
+  string description = 3;
+  string quantity_ordered = 4;
+  string quantity_received = 5;
+  string unit_price = 6;
+  string line_total = 7;
+}
+
+enum PurchaseOrderStatus {
+  PURCHASE_ORDER_STATUS_UNSPECIFIED = 0;
+  PURCHASE_ORDER_STATUS_DRAFT = 1;
+  PURCHASE_ORDER_STATUS_ISSUED = 2;
+  PURCHASE_ORDER_STATUS_PARTIALLY_RECEIVED = 3;
+  PURCHASE_ORDER_STATUS_RECEIVED = 4;
+  PURCHASE_ORDER_STATUS_CLOSED = 5;
+  PURCHASE_ORDER_STATUS_CANCELLED = 6;
+}
+
+message CreatePurchaseOrderRequest {
+  string vendor_id = 1;
+  string requisition_id = 2;
+  string order_date = 3;
+  string expected_delivery_date = 4;
+  string currency_code = 5;
+  repeated CreatePurchaseOrderLineRequest lines = 6;
+}
+
+message CreatePurchaseOrderLineRequest {
+  string description = 1;
+  string quantity = 2;
+  string unit_price = 3;
+}
+
+message GetPurchaseOrderRequest {
+  string id = 1;
+}
+
+message ListPurchaseOrdersRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  PurchaseOrderStatus status_filter = 2;
+  string vendor_id = 3;
+}
+
+message ListPurchaseOrdersResponse {
+  repeated PurchaseOrder purchase_orders = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message ClosePurchaseOrderRequest {
+  string id = 1;
+}
+
+// === Goods Receipt ===
+
+service GoodsReceiptService {
+  rpc CreateGoodsReceipt(CreateGoodsReceiptRequest) returns (GoodsReceipt);
+  rpc GetGoodsReceipt(GetGoodsReceiptRequest) returns (GoodsReceipt);
+  rpc ListGoodsReceipts(ListGoodsReceiptsRequest) returns (ListGoodsReceiptsResponse);
+}
+
+message GoodsReceipt {
+  string id = 1;
+  string receipt_number = 2;
+  string po_id = 3;
+  string received_date = 4;
+  string received_by = 5;
+  GoodsReceiptStatus status = 6;
+  repeated GoodsReceiptLine lines = 7;
+  fusion.common.v1.AuditInfo audit_info = 8;
+}
+
+message GoodsReceiptLine {
+  string id = 1;
+  string po_line_id = 2;
+  string quantity_received = 3;
+  GoodsReceiptCondition condition = 4;
+}
+
+enum GoodsReceiptStatus {
+  GOODS_RECEIPT_STATUS_UNSPECIFIED = 0;
+  GOODS_RECEIPT_STATUS_DRAFT = 1;
+  GOODS_RECEIPT_STATUS_CONFIRMED = 2;
+}
+
+enum GoodsReceiptCondition {
+  GOODS_RECEIPT_CONDITION_UNSPECIFIED = 0;
+  GOODS_RECEIPT_CONDITION_ACCEPTED = 1;
+  GOODS_RECEIPT_CONDITION_DAMAGED = 2;
+  GOODS_RECEIPT_CONDITION_REJECTED = 3;
+}
+
+message CreateGoodsReceiptRequest {
+  string po_id = 1;
+  string received_date = 2;
+  repeated CreateGoodsReceiptLineRequest lines = 3;
+}
+
+message CreateGoodsReceiptLineRequest {
+  string po_line_id = 1;
+  string quantity_received = 2;
+  GoodsReceiptCondition condition = 3;
+}
+
+message GetGoodsReceiptRequest {
+  string id = 1;
+}
+
+message ListGoodsReceiptsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  string po_id = 2;
+}
+
+message ListGoodsReceiptsResponse {
+  repeated GoodsReceipt goods_receipts = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}

@@ -1,0 +1,142 @@
+// Budget Management Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.budget.v1;
+
+import "common.proto";
+
+service BudgetService {
+  rpc CreateBudget(CreateBudgetRequest) returns (Budget);
+  rpc GetBudget(GetBudgetRequest) returns (Budget);
+  rpc ListBudgets(ListBudgetsRequest) returns (ListBudgetsResponse);
+  rpc ApproveBudget(ApproveBudgetRequest) returns (Budget);
+  rpc UploadBudget(UploadBudgetRequest) returns (Budget);
+}
+
+message Budget {
+  string id = 1;
+  string name = 2;
+  int32 fiscal_year = 3;
+  string department = 4;
+  BudgetStatus status = 5;
+  fusion.common.v1.Money total_amount = 6;
+  string approved_by = 7;
+  repeated BudgetLine lines = 8;
+  fusion.common.v1.AuditInfo audit_info = 9;
+}
+
+message BudgetLine {
+  string id = 1;
+  string gl_account_id = 2;
+  int32 period_number = 3;
+  fusion.common.v1.Money budgeted_amount = 4;
+  fusion.common.v1.Money actual_amount = 5;
+}
+
+enum BudgetStatus {
+  BUDGET_STATUS_UNSPECIFIED = 0;
+  BUDGET_STATUS_DRAFT = 1;
+  BUDGET_STATUS_APPROVED = 2;
+  BUDGET_STATUS_ACTIVE = 3;
+  BUDGET_STATUS_CLOSED = 4;
+}
+
+message CreateBudgetRequest {
+  string name = 1;
+  int32 fiscal_year = 2;
+  string department = 3;
+  repeated CreateBudgetLineRequest lines = 4;
+}
+
+message CreateBudgetLineRequest {
+  string gl_account_id = 1;
+  int32 period_number = 2;
+  fusion.common.v1.Money budgeted_amount = 3;
+}
+
+message GetBudgetRequest {
+  string id = 1;
+}
+
+message ListBudgetsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  int32 fiscal_year = 2;
+  BudgetStatus status_filter = 3;
+  string department = 4;
+}
+
+message ListBudgetsResponse {
+  repeated Budget budgets = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message ApproveBudgetRequest {
+  string id = 1;
+}
+
+message UploadBudgetRequest {
+  string name = 1;
+  int32 fiscal_year = 2;
+  string department = 3;
+  bytes file_content = 4; // CSV or Excel file content
+  string file_name = 5;
+}
+
+// === Budget vs Actual ===
+
+service BudgetAnalysisService {
+  rpc GetBudgetVsActual(GetBudgetVsActualRequest) returns (BudgetVsActualReport);
+  rpc GetVarianceReport(GetVarianceReportRequest) returns (VarianceReport);
+}
+
+message GetBudgetVsActualRequest {
+  string budget_id = 1;
+  int32 period_number = 2; // Optional: filter to specific period
+}
+
+message BudgetVsActualReport {
+  string budget_name = 1;
+  int32 fiscal_year = 2;
+  repeated BudgetVsActualLine lines = 3;
+  BudgetVsActualTotals totals = 4;
+}
+
+message BudgetVsActualLine {
+  string gl_account_id = 1;
+  string account_name = 2;
+  int32 period_number = 3;
+  fusion.common.v1.Money budgeted = 4;
+  fusion.common.v1.Money actual = 5;
+  fusion.common.v1.Money variance = 6;
+  string variance_percentage = 7;
+}
+
+message BudgetVsActualTotals {
+  fusion.common.v1.Money total_budgeted = 1;
+  fusion.common.v1.Money total_actual = 2;
+  fusion.common.v1.Money total_variance = 3;
+}
+
+message GetVarianceReportRequest {
+  int32 fiscal_year = 1;
+  int32 period_number = 2;
+  string variance_threshold = 3; // Optional: only show variances above this percentage
+}
+
+message VarianceReport {
+  repeated VarianceLine lines = 1;
+}
+
+message VarianceLine {
+  string budget_id = 1;
+  string budget_name = 2;
+  string gl_account_id = 3;
+  int32 period_number = 4;
+  fusion.common.v1.Money budgeted = 5;
+  fusion.common.v1.Money actual = 6;
+  fusion.common.v1.Money variance = 7;
+  string variance_percentage = 8;
+  bool exceeds_threshold = 9;
+}

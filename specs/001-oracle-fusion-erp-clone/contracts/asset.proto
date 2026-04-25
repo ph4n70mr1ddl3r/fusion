@@ -1,0 +1,162 @@
+// Fixed Asset Management Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.asset.v1;
+
+import "common.proto";
+
+service FixedAssetService {
+  rpc CreateAsset(CreateAssetRequest) returns (FixedAsset);
+  rpc GetAsset(GetAssetRequest) returns (FixedAsset);
+  rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
+  rpc UpdateAsset(UpdateAssetRequest) returns (FixedAsset);
+  rpc DisposeAsset(DisposeAssetRequest) returns (AssetDisposal);
+  rpc GetAssetRegister(GetAssetRegisterRequest) returns (AssetRegister);
+}
+
+message FixedAsset {
+  string id = 1;
+  string asset_code = 2;
+  string description = 3;
+  string acquisition_date = 4;
+  fusion.common.v1.Money acquisition_cost = 5;
+  int32 useful_life_months = 6;
+  DepreciationMethod depreciation_method = 7;
+  string declining_balance_rate = 8;
+  fusion.common.v1.Money salvage_value = 9;
+  fusion.common.v1.Money accumulated_depreciation = 10;
+  fusion.common.v1.Money net_book_value = 11;
+  string location = 12;
+  AssetStatus status = 13;
+  string gl_asset_account_id = 14;
+  string gl_depreciation_account_id = 15;
+  fusion.common.v1.AuditInfo audit_info = 16;
+}
+
+enum DepreciationMethod {
+  DEPRECIATION_METHOD_UNSPECIFIED = 0;
+  DEPRECIATION_METHOD_STRAIGHT_LINE = 1;
+  DEPRECIATION_METHOD_DECLINING_BALANCE = 2;
+}
+
+enum AssetStatus {
+  ASSET_STATUS_UNSPECIFIED = 0;
+  ASSET_STATUS_ACTIVE = 1;
+  ASSET_STATUS_DISPOSED = 2;
+  ASSET_STATUS_FULLY_DEPRECIATED = 3;
+}
+
+message CreateAssetRequest {
+  string asset_code = 1;
+  string description = 2;
+  string acquisition_date = 3;
+  fusion.common.v1.Money acquisition_cost = 4;
+  int32 useful_life_months = 5;
+  DepreciationMethod depreciation_method = 6;
+  string declining_balance_rate = 7;
+  fusion.common.v1.Money salvage_value = 8;
+  string location = 9;
+  string gl_asset_account_id = 10;
+  string gl_depreciation_account_id = 11;
+}
+
+message GetAssetRequest {
+  string id = 1;
+}
+
+message ListAssetsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  AssetStatus status_filter = 2;
+  string location = 3;
+}
+
+message ListAssetsResponse {
+  repeated FixedAsset assets = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message UpdateAssetRequest {
+  string id = 1;
+  string description = 2;
+  string location = 3;
+}
+
+message DisposeAssetRequest {
+  string asset_id = 1;
+  string disposal_date = 2;
+  fusion.common.v1.Money disposal_proceeds = 3;
+}
+
+message AssetDisposal {
+  string id = 1;
+  string asset_id = 2;
+  string disposal_date = 3;
+  fusion.common.v1.Money disposal_proceeds = 4;
+  fusion.common.v1.Money net_book_value_at_disposal = 5;
+  fusion.common.v1.Money gain_loss_amount = 6;
+  string gl_journal_entry_id = 7;
+  fusion.common.v1.AuditInfo audit_info = 8;
+}
+
+message GetAssetRegisterRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  AssetStatus status_filter = 2;
+}
+
+message AssetRegister {
+  repeated AssetRegisterLine lines = 1;
+  fusion.common.v1.Money total_cost = 2;
+  fusion.common.v1.Money total_accumulated_depreciation = 3;
+  fusion.common.v1.Money total_net_book_value = 4;
+}
+
+message AssetRegisterLine {
+  string asset_id = 1;
+  string asset_code = 2;
+  string description = 3;
+  string location = 4;
+  fusion.common.v1.Money acquisition_cost = 5;
+  fusion.common.v1.Money accumulated_depreciation = 6;
+  fusion.common.v1.Money net_book_value = 7;
+  AssetStatus status = 8;
+}
+
+// === Depreciation ===
+
+service DepreciationService {
+  rpc RunDepreciation(RunDepreciationRequest) returns (RunDepreciationResponse);
+  rpc GetDepreciationHistory(GetDepreciationHistoryRequest) returns (DepreciationHistory);
+}
+
+message RunDepreciationRequest {
+  int32 period_year = 1;
+  int32 period_number = 2;
+  repeated string asset_ids = 3; // Optional: specific assets; empty = all active
+}
+
+message RunDepreciationResponse {
+  int32 assets_depreciated = 1;
+  fusion.common.v1.Money total_depreciation = 2;
+  string gl_journal_entry_id = 3;
+}
+
+message GetDepreciationHistoryRequest {
+  string asset_id = 1;
+}
+
+message DepreciationHistory {
+  string asset_id = 1;
+  repeated DepreciationEntry entries = 2;
+}
+
+message DepreciationEntry {
+  string id = 1;
+  int32 period_year = 2;
+  int32 period_number = 3;
+  fusion.common.v1.Money depreciation_amount = 4;
+  fusion.common.v1.Money accumulated_depreciation = 5;
+  fusion.common.v1.Money net_book_value = 6;
+  string gl_journal_entry_id = 7;
+}

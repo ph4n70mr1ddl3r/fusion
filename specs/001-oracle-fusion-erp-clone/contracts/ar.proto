@@ -1,0 +1,280 @@
+// Accounts Receivable Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.ar.v1;
+
+import "common.proto";
+
+// === Customer Management ===
+
+service CustomerService {
+  rpc CreateCustomer(CreateCustomerRequest) returns (Customer);
+  rpc GetCustomer(GetCustomerRequest) returns (Customer);
+  rpc ListCustomers(ListCustomersRequest) returns (ListCustomersResponse);
+  rpc UpdateCustomer(UpdateCustomerRequest) returns (Customer);
+  rpc CheckCreditLimit(CheckCreditLimitRequest) returns (CreditLimitStatus);
+}
+
+message Customer {
+  string id = 1;
+  string customer_code = 2;
+  string name = 3;
+  fusion.common.v1.Address address = 4;
+  string payment_terms = 5;
+  fusion.common.v1.Money credit_limit = 6;
+  string tax_id = 7;
+  string contact_email = 8;
+  bool is_active = 9;
+  bool on_credit_hold = 10;
+  fusion.common.v1.Money outstanding_balance = 11;
+  fusion.common.v1.AuditInfo audit_info = 12;
+}
+
+message CreateCustomerRequest {
+  string customer_code = 1;
+  string name = 2;
+  fusion.common.v1.Address address = 3;
+  string payment_terms = 4;
+  fusion.common.v1.Money credit_limit = 5;
+  string tax_id = 6;
+  string contact_email = 7;
+}
+
+message GetCustomerRequest {
+  string id = 1;
+}
+
+message ListCustomersRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  bool active_only = 2;
+  string name_contains = 3;
+}
+
+message ListCustomersResponse {
+  repeated Customer customers = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message UpdateCustomerRequest {
+  string id = 1;
+  string name = 2;
+  fusion.common.v1.Address address = 3;
+  string payment_terms = 4;
+  fusion.common.v1.Money credit_limit = 5;
+  string contact_email = 6;
+}
+
+message CheckCreditLimitRequest {
+  string customer_id = 1;
+  fusion.common.v1.Money additional_amount = 2; // Optional: check if adding this amount exceeds limit
+}
+
+message CreditLimitStatus {
+  string customer_id = 1;
+  fusion.common.v1.Money credit_limit = 2;
+  fusion.common.v1.Money outstanding_balance = 3;
+  fusion.common.v1.Money available_credit = 4;
+  bool is_on_hold = 5;
+  bool would_exceed = 6; // True if additional_amount would exceed limit
+}
+
+// === AR Invoice ===
+
+service ArInvoiceService {
+  rpc CreateInvoice(CreateArInvoiceRequest) returns (ArInvoice);
+  rpc GetInvoice(GetArInvoiceRequest) returns (ArInvoice);
+  rpc ListInvoices(ListArInvoicesRequest) returns (ListArInvoicesResponse);
+  rpc PostInvoice(PostArInvoiceRequest) returns (ArInvoice);
+}
+
+message ArInvoice {
+  string id = 1;
+  string invoice_number = 2;
+  string customer_id = 3;
+  string invoice_date = 4;
+  string due_date = 5;
+  fusion.common.v1.Money subtotal = 6;
+  fusion.common.v1.Money tax_amount = 7;
+  fusion.common.v1.Money total_amount = 8;
+  string currency_code = 9;
+  ArInvoiceStatus status = 10;
+  ArPaymentStatus payment_status = 11;
+  fusion.common.v1.Money paid_amount = 12;
+  string gl_journal_entry_id = 13;
+  repeated ArInvoiceLine lines = 14;
+  fusion.common.v1.AuditInfo audit_info = 15;
+}
+
+message ArInvoiceLine {
+  string id = 1;
+  int32 line_number = 2;
+  string description = 3;
+  string quantity = 4;
+  string unit_price = 5;
+  string line_total = 6;
+  string tax_code = 7;
+  string gl_account_id = 8;
+}
+
+enum ArInvoiceStatus {
+  AR_INVOICE_STATUS_UNSPECIFIED = 0;
+  AR_INVOICE_STATUS_DRAFT = 1;
+  AR_INVOICE_STATUS_SENT = 2;
+  AR_INVOICE_STATUS_POSTED = 3;
+  AR_INVOICE_STATUS_CANCELLED = 4;
+}
+
+enum ArPaymentStatus {
+  AR_PAYMENT_STATUS_UNSPECIFIED = 0;
+  AR_PAYMENT_STATUS_UNPAID = 1;
+  AR_PAYMENT_STATUS_PARTIALLY_PAID = 2;
+  AR_PAYMENT_STATUS_PAID = 3;
+}
+
+message CreateArInvoiceRequest {
+  string customer_id = 1;
+  string invoice_date = 2;
+  string due_date = 3;
+  string currency_code = 4;
+  repeated CreateArInvoiceLineRequest lines = 5;
+}
+
+message CreateArInvoiceLineRequest {
+  string description = 1;
+  string quantity = 2;
+  string unit_price = 3;
+  string tax_code = 4;
+  string gl_account_id = 5;
+}
+
+message GetArInvoiceRequest {
+  string id = 1;
+}
+
+message ListArInvoicesRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  ArInvoiceStatus status_filter = 2;
+  string customer_id = 3;
+  string date_from = 4;
+  string date_to = 5;
+}
+
+message ListArInvoicesResponse {
+  repeated ArInvoice invoices = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message PostArInvoiceRequest {
+  string id = 1;
+}
+
+// === Receipt Processing ===
+
+service ReceiptService {
+  rpc CreateReceipt(CreateReceiptRequest) returns (Receipt);
+  rpc GetReceipt(GetReceiptRequest) returns (Receipt);
+  rpc ListReceipts(ListReceiptsRequest) returns (ListReceiptsResponse);
+  rpc MatchReceipt(MatchReceiptRequest) returns (Receipt);
+}
+
+message Receipt {
+  string id = 1;
+  string receipt_number = 2;
+  string customer_id = 3;
+  string receipt_date = 4;
+  fusion.common.v1.Money amount = 5;
+  string currency_code = 6;
+  ReceiptPaymentMethod payment_method = 7;
+  string reference = 8;
+  ReceiptStatus status = 9;
+  fusion.common.v1.Money unapplied_amount = 10;
+  string gl_journal_entry_id = 11;
+  repeated ReceiptAllocation allocations = 12;
+  fusion.common.v1.AuditInfo audit_info = 13;
+}
+
+message ReceiptAllocation {
+  string invoice_id = 1;
+  fusion.common.v1.Money amount = 2;
+}
+
+enum ReceiptPaymentMethod {
+  RECEIPT_PAYMENT_METHOD_UNSPECIFIED = 0;
+  RECEIPT_PAYMENT_METHOD_CHECK = 1;
+  RECEIPT_PAYMENT_METHOD_WIRE_TRANSFER = 2;
+  RECEIPT_PAYMENT_METHOD_CASH = 3;
+  RECEIPT_PAYMENT_METHOD_CREDIT_CARD = 4;
+}
+
+enum ReceiptStatus {
+  RECEIPT_STATUS_UNSPECIFIED = 0;
+  RECEIPT_STATUS_UNAPPLIED = 1;
+  RECEIPT_STATUS_PARTIALLY_APPLIED = 2;
+  RECEIPT_STATUS_APPLIED = 3;
+}
+
+message CreateReceiptRequest {
+  string customer_id = 1;
+  string receipt_date = 2;
+  fusion.common.v1.Money amount = 3;
+  string currency_code = 4;
+  ReceiptPaymentMethod payment_method = 5;
+  string reference = 6;
+  repeated ReceiptAllocation allocations = 7; // Optional: pre-match to invoices
+}
+
+message GetReceiptRequest {
+  string id = 1;
+}
+
+message ListReceiptsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  string customer_id = 2;
+  ReceiptStatus status_filter = 3;
+}
+
+message ListReceiptsResponse {
+  repeated Receipt receipts = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message MatchReceiptRequest {
+  string receipt_id = 1;
+  repeated ReceiptAllocation allocations = 2;
+}
+
+// === AR Aging Report ===
+
+service ArAgingService {
+  rpc GetArAging(ArAgingRequest) returns (ArAgingReport);
+}
+
+message ArAgingReport {
+  string as_of_date = 1;
+  repeated ArAgingLine lines = 2;
+  ArAgingTotals totals = 3;
+}
+
+message ArAgingLine {
+  string customer_id = 1;
+  string customer_name = 2;
+  fusion.common.v1.Money current = 3;
+  fusion.common.v1.Money aging_30 = 4;
+  fusion.common.v1.Money aging_60 = 5;
+  fusion.common.v1.Money aging_90_plus = 6;
+  fusion.common.v1.Money total = 7;
+}
+
+message ArAgingTotals {
+  fusion.common.v1.Money current = 1;
+  fusion.common.v1.Money aging_30 = 2;
+  fusion.common.v1.Money aging_60 = 3;
+  fusion.common.v1.Money aging_90_plus = 4;
+  fusion.common.v1.Money total = 5;
+}
+
+message ArAgingRequest {
+  string as_of_date = 1;
+}

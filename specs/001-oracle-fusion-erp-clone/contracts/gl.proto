@@ -1,0 +1,252 @@
+// General Ledger Service Contract
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.gl.v1;
+
+import "common.proto";
+
+// === Chart of Accounts ===
+
+service ChartOfAccountsService {
+  rpc CreateAccount(CreateAccountRequest) returns (Account);
+  rpc GetAccount(GetAccountRequest) returns (Account);
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc UpdateAccount(UpdateAccountRequest) returns (Account);
+  rpc DeactivateAccount(DeactivateAccountRequest) returns (Account);
+}
+
+message Account {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  AccountType account_type = 4;
+  string parent_id = 5;          // Optional; for multi-level hierarchy
+  map<string, string> segments = 6; // Segment values (company, department, etc.)
+  bool is_active = 7;
+  fusion.common.v1.AuditInfo audit_info = 8;
+}
+
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_ASSET = 1;
+  ACCOUNT_TYPE_LIABILITY = 2;
+  ACCOUNT_TYPE_EQUITY = 3;
+  ACCOUNT_TYPE_REVENUE = 4;
+  ACCOUNT_TYPE_EXPENSE = 5;
+}
+
+message CreateAccountRequest {
+  string code = 1;
+  string name = 2;
+  AccountType account_type = 3;
+  string parent_id = 4;
+  map<string, string> segments = 5;
+}
+
+message GetAccountRequest {
+  string id = 1;
+}
+
+message ListAccountsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  AccountType account_type_filter = 2;
+  bool active_only = 3;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message UpdateAccountRequest {
+  string id = 1;
+  string name = 2;
+  map<string, string> segments = 3;
+}
+
+message DeactivateAccountRequest {
+  string id = 1;
+}
+
+// === Journal Entries ===
+
+service JournalEntryService {
+  rpc CreateJournalEntry(CreateJournalEntryRequest) returns (JournalEntry);
+  rpc GetJournalEntry(GetJournalEntryRequest) returns (JournalEntry);
+  rpc ListJournalEntries(ListJournalEntriesRequest) returns (ListJournalEntriesResponse);
+  rpc PostJournalEntry(PostJournalEntryRequest) returns (JournalEntry);
+  rpc ReverseJournalEntry(ReverseJournalEntryRequest) returns (JournalEntry);
+}
+
+message JournalEntry {
+  string id = 1;
+  string entry_number = 2;
+  string description = 3;
+  string entry_date = 4;        // ISO 8601 date
+  string period_id = 5;
+  JournalEntrySource source = 6;
+  string source_reference = 7;
+  JournalEntryStatus status = 8;
+  fusion.common.v1.Money total_debit = 9;
+  fusion.common.v1.Money total_credit = 10;
+  string currency_code = 11;
+  string reversal_of_id = 12;
+  repeated JournalEntryLine lines = 13;
+  fusion.common.v1.AuditInfo audit_info = 14;
+}
+
+message JournalEntryLine {
+  string id = 1;
+  int32 line_number = 2;
+  string account_id = 3;
+  string description = 4;
+  fusion.common.v1.Money debit_amount = 5;
+  fusion.common.v1.Money credit_amount = 6;
+}
+
+enum JournalEntrySource {
+  JOURNAL_ENTRY_SOURCE_UNSPECIFIED = 0;
+  JOURNAL_ENTRY_SOURCE_MANUAL = 1;
+  JOURNAL_ENTRY_SOURCE_AP_INVOICE = 2;
+  JOURNAL_ENTRY_SOURCE_AR_INVOICE = 3;
+  JOURNAL_ENTRY_SOURCE_PAYMENT = 4;
+  JOURNAL_ENTRY_SOURCE_RECEIPT = 5;
+  JOURNAL_ENTRY_SOURCE_DEPRECIATION = 6;
+  JOURNAL_ENTRY_SOURCE_REVALUATION = 7;
+  JOURNAL_ENTRY_SOURCE_CONSOLIDATION = 8;
+}
+
+enum JournalEntryStatus {
+  JOURNAL_ENTRY_STATUS_UNSPECIFIED = 0;
+  JOURNAL_ENTRY_STATUS_DRAFT = 1;
+  JOURNAL_ENTRY_STATUS_PENDING_APPROVAL = 2;
+  JOURNAL_ENTRY_STATUS_POSTED = 3;
+  JOURNAL_ENTRY_STATUS_REVERSED = 4;
+}
+
+message CreateJournalEntryRequest {
+  string description = 1;
+  string entry_date = 2;
+  string period_id = 3;
+  string currency_code = 4;
+  repeated CreateJournalEntryLineRequest lines = 5;
+}
+
+message CreateJournalEntryLineRequest {
+  string account_id = 1;
+  string description = 2;
+  fusion.common.v1.Money debit_amount = 3;
+  fusion.common.v1.Money credit_amount = 4;
+}
+
+message GetJournalEntryRequest {
+  string id = 1;
+}
+
+message ListJournalEntriesRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  JournalEntryStatus status_filter = 2;
+  string period_id = 3;
+  string date_from = 4;
+  string date_to = 5;
+  string source_reference = 6;
+}
+
+message ListJournalEntriesResponse {
+  repeated JournalEntry entries = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message PostJournalEntryRequest {
+  string id = 1;
+}
+
+message ReverseJournalEntryRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+// === Financial Periods ===
+
+service FinancialPeriodService {
+  rpc CreatePeriod(CreatePeriodRequest) returns (FinancialPeriod);
+  rpc GetPeriod(GetPeriodRequest) returns (FinancialPeriod);
+  rpc ListPeriods(ListPeriodsRequest) returns (ListPeriodsResponse);
+  rpc ClosePeriod(ClosePeriodRequest) returns (FinancialPeriod);
+}
+
+message FinancialPeriod {
+  string id = 1;
+  string name = 2;
+  string start_date = 3;
+  string end_date = 4;
+  PeriodStatus status = 5;
+  int32 period_year = 6;
+  int32 period_number = 7;
+  string closed_by = 8;
+  string closed_at = 9;
+}
+
+enum PeriodStatus {
+  PERIOD_STATUS_UNSPECIFIED = 0;
+  PERIOD_STATUS_OPEN = 1;
+  PERIOD_STATUS_CLOSED = 2;
+  PERIOD_STATUS_PERMANENTLY_CLOSED = 3;
+}
+
+message CreatePeriodRequest {
+  string name = 1;
+  string start_date = 2;
+  string end_date = 3;
+  int32 period_year = 4;
+  int32 period_number = 5;
+}
+
+message GetPeriodRequest {
+  string id = 1;
+}
+
+message ListPeriodsRequest {
+  fusion.common.v1.PaginationRequest pagination = 1;
+  int32 period_year = 2;
+  PeriodStatus status_filter = 3;
+}
+
+message ListPeriodsResponse {
+  repeated FinancialPeriod periods = 1;
+  fusion.common.v1.PaginationResponse pagination = 2;
+}
+
+message ClosePeriodRequest {
+  string id = 1;
+}
+
+// === Trial Balance ===
+
+service TrialBalanceService {
+  rpc GetTrialBalance(GetTrialBalanceRequest) returns (TrialBalance);
+}
+
+message TrialBalance {
+  string period_id = 1;
+  repeated TrialBalanceLine lines = 2;
+  fusion.common.v1.Money total_debits = 3;
+  fusion.common.v1.Money total_credits = 4;
+}
+
+message TrialBalanceLine {
+  string account_id = 1;
+  string account_code = 2;
+  string account_name = 3;
+  fusion.common.v1.Money opening_balance = 4;
+  fusion.common.v1.Money period_debit = 5;
+  fusion.common.v1.Money period_credit = 6;
+  fusion.common.v1.Money closing_balance = 7;
+}
+
+message GetTrialBalanceRequest {
+  string period_id = 1;
+  string account_type_filter = 2; // Optional filter
+}

@@ -1,0 +1,93 @@
+// Common types shared across all Fusion ERP services.
+// Version: 1.0.0
+
+syntax = "proto3";
+
+package fusion.common.v1;
+
+// === Scalar Wrappers ===
+
+message Money {
+  int64 units = 1;          // Whole currency units (e.g., dollars)
+  int32 nanos = 2;          // Fractional units (e.g., cents). Range: -999999999 to 999999999
+  string currency_code = 3; // ISO 4217, e.g., "USD", "EUR"
+}
+
+message DecimalValue {
+  int64 units = 1;
+  int32 nanos = 2;
+}
+
+message Uuid {
+  string value = 1; // UUID v4 as hyphenated string
+}
+
+message Empty {}
+
+message TenantId {
+  string value = 1;
+}
+
+// === Pagination ===
+
+message PaginationRequest {
+  int32 page_size = 1;    // Max items per page (default: 20, max: 100)
+  string page_token = 2;  // Opaque cursor for next page
+}
+
+message PaginationResponse {
+  int32 total_count = 1;
+  string next_page_token = 2;
+  bool has_more = 3;
+}
+
+// === Sorting & Filtering ===
+
+message SortField {
+  string field = 1;
+  bool descending = 2;
+}
+
+message Filter {
+  string field = 1;
+  string operator = 2; // eq, ne, gt, gte, lt, lte, in, like, is_null
+  string value = 3;
+}
+
+// === Common Enums ===
+
+enum EntityStatus {
+  ENTITY_STATUS_UNSPECIFIED = 0;
+  ENTITY_STATUS_ACTIVE = 1;
+  ENTITY_STATUS_INACTIVE = 2;
+}
+
+enum SortDirection {
+  SORT_DIRECTION_UNSPECIFIED = 0;
+  SORT_DIRECTION_ASCENDING = 1;
+  SORT_DIRECTION_DESCENDING = 2;
+}
+
+// === Audit Info ===
+
+message AuditInfo {
+  string created_by = 1;
+  google.protobuf.Timestamp created_at = 2;
+  string updated_by = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+// === Address ===
+
+message Address {
+  string line1 = 1;
+  string line2 = 2;
+  string city = 3;
+  string state = 4;
+  string postal_code = 5;
+  string country = 6;
+}
+
+// === Tenant Context (propagated via gRPC metadata) ===
+// Services extract tenant_id from JWT claims via auth middleware.
+// No explicit tenant_id field needed in request messages — enforced at service layer.
