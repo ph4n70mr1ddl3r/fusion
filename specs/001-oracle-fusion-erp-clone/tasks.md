@@ -23,6 +23,22 @@
 
 ---
 
+## TDD Process Enforcement (Constitution Principle I)
+
+Per the project constitution, **every** user story phase MUST follow this gate:
+
+1. **RED**: Write contract + model tests — they MUST fail.
+2. **⏸ GATE — User Approval**: Pause. Present failing tests to the user.
+   Implementation MUST NOT begin until the user explicitly approves the test
+   suite as correctly capturing the requirement.
+3. **GREEN**: Write minimum implementation to pass all tests.
+4. **REFACTOR**: Clean up while keeping all tests green.
+
+This gate is enforced at each "Tests" subsection within Phases 3–13. Do not
+skip from test tasks directly to implementation tasks without user sign-off.
+
+---
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Cargo workspace initialization, shared crates, Docker infrastructure, proto compilation, frontend scaffolding, CI pipeline
@@ -43,6 +59,7 @@
 - [ ] T014 [P] Create `.env.example` with all service environment variables (DATABASE_URL, NATS_URL, JWT_PUBLIC_KEY_PATH, RUST_LOG, etc.)
 - [ ] T015 Generate RSA-2048 key pair in `keys/private.pem` and `keys/public.pem` for JWT signing/verification
 - [ ] T016 [P] Configure `cargo-nextest` in `.nextest.toml` with test threading and retry settings
+- [ ] T016a [P] Implement `crates/observability/` shared crate with OpenTelemetry tracing initialization, span propagation helpers for gRPC and NATS, and standard Prometheus metrics registry (request latency, error rate, throughput counters) — all services MUST depend on this crate for day-one observability (Constitution Principle V)
 - [ ] T017 [P] Create `web/src/api/` API client scaffolding with Axios/TanStack Query configuration and gateway base URL
 - [ ] T018 [P] Create `web/src/types/` TypeScript type definitions generated from proto contract structures
 - [ ] T019 [P] Create `web/src/stores/` Zustand stores for global app state (current user, current tenant, sidebar, selected period)
@@ -68,7 +85,7 @@
 - [ ] T028 [P] Implement `UserService` (create with Argon2 hashing, get, list, update, deactivate) in `services/identity/src/service/user_service.rs`
 - [ ] T029 [P] Implement `RoleService` (create, get, list, assign role to user, revoke role) in `services/identity/src/service/role_service.rs`
 - [ ] T030 Implement identity gRPC handlers for `UserService`, `RoleService`, `AuthenticationService` in `services/identity/src/handlers/`
-- [ ] T031 Implement identity server bootstrap with health/readiness endpoints and gRPC server startup in `services/identity/src/main.rs`
+- [ ] T031 Implement identity server bootstrap with health/readiness endpoints, gRPC server startup, and `crates/observability` integration (tracing + Prometheus metrics) in `services/identity/src/main.rs`
 - [ ] T032 Write identity service integration tests (registration, login, token refresh, role assignment) in `services/identity/tests/integration_test.rs`
 
 ### API Gateway
@@ -77,7 +94,7 @@
 - [ ] T034 Implement gateway REST-to-gRPC routing with tonic clients for each backend service in `services/gateway/src/routes/mod.rs`
 - [ ] T035 Implement gateway auth middleware (JWT validation via `crates/auth`, tenant extraction, user context injection) in `services/gateway/src/middleware/auth.rs`
 - [ ] T036 [P] Implement gateway rate limiting middleware via `tower` in `services/gateway/src/middleware/rate_limit.rs`
-- [ ] T037 Implement gateway server bootstrap with health/readiness and all REST route registrations in `services/gateway/src/main.rs`
+- [ ] T037 Implement gateway server bootstrap with health/readiness, all REST route registrations, and `crates/observability` integration (tracing + Prometheus metrics) in `services/gateway/src/main.rs`
 - [ ] T038 Write gateway integration tests (auth middleware, proxy routing, rate limiting) in `services/gateway/tests/integration_test.rs`
 
 ### Workflow Service (Basic Approvals)
@@ -90,7 +107,7 @@
 - [ ] T044 Implement `ApprovalWorkflowService` (create, get, list, basic condition matching) in `services/workflow/src/service/workflow_service.rs`
 - [ ] T045 Implement `ApprovalInstanceService` (submit for approval, approve, reject, find matching workflow) in `services/workflow/src/service/instance_service.rs`
 - [ ] T046 Implement workflow gRPC handlers for `ApprovalWorkflowService` and `ApprovalInstanceService` in `services/workflow/src/handlers/`
-- [ ] T047 Implement workflow server bootstrap with health/readiness and NATS event subscription in `services/workflow/src/main.rs`
+- [ ] T047 Implement workflow server bootstrap with health/readiness, NATS event subscription, and `crates/observability` integration (tracing + Prometheus metrics) in `services/workflow/src/main.rs`
 - [ ] T048 Write workflow service integration tests (workflow CRUD, submit/approve/reject flow) in `services/workflow/tests/integration_test.rs`
 
 ### Notification Service (Basic In-App)
@@ -101,7 +118,7 @@
 - [ ] T052 Implement `NotificationService` (create, list, mark read, mark all read, unread count) in `services/notification/src/service/notification_service.rs`
 - [ ] T053 Implement notification NATS event subscriber for incoming approval and system events in `services/notification/src/subscriber.rs`
 - [ ] T054 Implement notification gRPC handlers for `NotificationService` and `NotificationEventService` in `services/notification/src/handlers/`
-- [ ] T055 Implement notification server bootstrap with health/readiness in `services/notification/src/main.rs`
+- [ ] T055 Implement notification server bootstrap with health/readiness and `crates/observability` integration (tracing + Prometheus metrics) in `services/notification/src/main.rs`
 - [ ] T056 Write notification service tests in `services/notification/tests/integration_test.rs`
 
 ### P1 Service Scaffolding
@@ -141,7 +158,7 @@
 - [ ] T073 [P] [US1] Implement `JournalEntryService` gRPC handlers in `services/gl/src/handlers/journal_handler.rs`
 - [ ] T074 [P] [US1] Implement `FinancialPeriodService` gRPC handlers in `services/gl/src/handlers/period_handler.rs`
 - [ ] T075 [P] [US1] Implement `TrialBalanceService` gRPC handler in `services/gl/src/handlers/trial_balance_handler.rs`
-- [ ] T076 [US1] Implement GL server bootstrap with gRPC + HTTP health endpoints and NATS subscriptions in `services/gl/src/main.rs`
+- [ ] T076 [US1] Implement GL server bootstrap with gRPC + HTTP health endpoints, NATS subscriptions, and `crates/observability` integration (tracing + Prometheus metrics) in `services/gl/src/main.rs`
 - [ ] T077 [US1] Write GL integration tests (account CRUD, journal entry lifecycle with balance validation, period close with posting prevention, trial balance accuracy) in `services/gl/tests/integration_test.rs`
 - [ ] T078 [US1] Add GL REST routes to gateway proxy in `services/gateway/src/routes/gl.rs`
 
@@ -307,6 +324,7 @@
 - [ ] T163 [P] [US9] Implement workflow-AR integration (credit limit override approval) in `services/ar/src/service/credit_service.rs`
 - [ ] T164 [US9] Implement workflow-notification integration (notify approvers on submission, escalation, completion) in `services/workflow/src/events.rs`
 - [ ] T165 [US9] Write end-to-end workflow integration tests (configure → submit → approve → verify posting → test escalation → test delegation) in `services/workflow/tests/integration_test.rs`
+- [ ] T165a [US9] Write notification delivery latency benchmark test: submit approval transaction → measure time to notification delivery → assert < 5 seconds (SC-005) in `services/notification/tests/latency_test.rs`
 
 ### Frontend Implementation for User Story 9
 
@@ -568,14 +586,28 @@
 **Purpose**: Improvements affecting multiple user stories, final validation, and production readiness
 
 - [ ] T300 [P] Add application-level caching with `moka` crate for frequently accessed data (chart of accounts, vendor/customer masters, exchange rates) with NATS-based cache invalidation across services
-- [ ] T301 [P] Implement circuit breaker pattern via `tower` for inter-service gRPC calls in gateway and reporting services
-- [ ] T302 [P] Add OpenTelemetry tracing instrumentation to all services with span propagation across gRPC and NATS boundaries
-- [ ] T303 [P] Add Prometheus metrics endpoints (`/metrics`) to all services with request latency, error rates, and business metrics counters
+- [ ] T301 [P] Implement circuit breaker pattern via `tower` for inter-service gRPC calls in gateway and reporting services (Constitution Principle V mandate)
 - [ ] T304 [P] Implement comprehensive error handling with user-friendly error messages in `web/src/components/ErrorBoundary.tsx` and API error interceptors
+
+> **Note**: T302 (OpenTelemetry) and T303 (Prometheus metrics) have been promoted to Phase 1 as T016a (`crates/observability/`) to satisfy Constitution Principle V ("day-one observability"). All service bootstrap tasks now include observability integration.
+
+### Edge Case Validation (Cross-Cutting)
+
+- [ ] T300a [P] [US1] Write GL edge-case tests: posting to closed period (spec edge 1), concurrent journal entry editing (spec edge 5), budget fully consumed posting (spec edge 7) in `services/gl/tests/edge_case_test.rs`
+- [ ] T300b [P] [US2] Write AP edge-case tests: vendor invoice exceeding PO amount (spec edge 5), concurrent invoice editing (spec edge 5) in `services/ap/tests/edge_case_test.rs`
+- [ ] T300c [P] [US3] Write AR edge-case tests: unapplied cash / payment not matching any invoice (spec edge 6) in `services/ar/tests/edge_case_test.rs`
+- [ ] T300d [P] [US4] Write procurement edge-case tests: partial/over-delivery against PO (spec edge 10) in `services/procurement/tests/edge_case_test.rs`
+- [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), mid-period tax rate change (spec edge 9) in `services/consolidation/tests/edge_case_test.rs`
+- [ ] T300f [P] [US9] Write workflow edge-case tests: circular approval reference (spec edge 3), no eligible approvers (spec edge 3) in `services/workflow/tests/edge_case_test.rs`
 - [ ] T305 [P] Add responsive layout and mobile-friendly navigation in `web/src/components/Layout.tsx`
 - [ ] T306 [P] Implement optimistic updates with TanStack Query mutations for frequently modified entities (invoice posting, payment processing, approval actions)
 - [ ] T307 [P] Add CSV/Excel export functionality to all data tables using `web/src/utils/export.ts`
 - [ ] T308 Run quickstart.md validation — verify all setup steps, build commands, test commands, and service startup work as documented
+- [ ] T308a Write performance benchmark suite in `tests/perf/`:
+  - SC-002: 100 concurrent users submitting transactions, 95th percentile response time < 3s
+  - SC-003: Generate standard reports against 100K posted transactions, assert < 10s
+  - SC-009: Period-end close with 1K+ assets and 10K+ journal entries, assert < 5 minutes
+  - Use `criterion` for Rust benchmarks and `k6` or `wrk` for HTTP load testing
 - [ ] T309 [P] Add `web/src/pages/Login.tsx` and `web/src/pages/ForgotPassword.tsx` authentication pages with token refresh handling
 - [ ] T310 Final workspace validation: `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --check`, `npm run build` (frontend) all passing
 
