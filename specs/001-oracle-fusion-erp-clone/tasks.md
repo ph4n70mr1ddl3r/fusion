@@ -43,7 +43,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 **Purpose**: Cargo workspace initialization, shared crates, Docker infrastructure, proto compilation, frontend scaffolding, CI pipeline
 
-- [ ] T001 Create Cargo workspace root with `Cargo.toml`, `rust-toolchain.toml` (MSRV pin), and workspace members for all 13 services + 7 shared crates
+- [ ] T001 Create Cargo workspace root with `Cargo.toml`, `rust-toolchain.toml` (MSRV pin), and workspace members for all 13 services + 9 shared crates
 - [ ] T002 [P] Initialize `web/` frontend with Vite + React 19 + TypeScript 5 + TanStack Query + Zustand + Recharts + TanStack Table in `web/package.json` and `web/vite.config.ts`
 - [ ] T003 [P] Create `docker-compose.yml` with PostgreSQL 16 and NATS 2 (JetStream enabled) services with health checks
 - [ ] T004 [P] Create multi-stage `Dockerfile` template for Rust service builds in `Dockerfile`
@@ -54,6 +54,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T009 [P] Implement `crates/auth/` with JWT RS256 validation, axum middleware for tenant extraction from JWT claims, and `AuthorizationService` trait
 - [ ] T010 [P] Implement `crates/error/` with unified error types, API error mapping, and `tonic::Status` conversion for gRPC handlers
 - [ ] T011 [P] Implement `crates/messaging/` with NATS JetStream publisher/subscriber abstraction using `async-nats` crate
+- [ ] T011a [P] Implement `crates/resilience/` shared crate with circuit breaker pattern (via `tower`), configurable retry policies, and gRPC client interceptor — all inter-service calls MUST use this interceptor for day-one reliability (Constitution Principle V)
 - [ ] T012 [P] Implement `crates/testing/` with test fixtures, mock gRPC services, DB seeders, and `TestDb` helper for isolated test databases
 - [ ] T013 [P] Configure CI pipeline in `.github/workflows/ci.yml` with cargo build, cargo nextest, clippy, fmt check, and cargo audit
 - [ ] T014 [P] Create `.env.example` with all service environment variables (DATABASE_URL, NATS_URL, JWT_PUBLIC_KEY_PATH, RUST_LOG, etc.)
@@ -142,6 +143,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T060 [US1] Write GL contract tests validating all proto RPCs (`ChartOfAccountsService`, `JournalEntryService`, `FinancialPeriodService`, `TrialBalanceService`) in `services/gl/tests/contract_test.rs`
 - [ ] T061 [P] [US1] Write GL model tests for `ChartOfAccount`, `FinancialPeriod`, `JournalEntry`, `JournalEntryLine` with validation rules in `services/gl/tests/model_test.rs`
 
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing GL contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
+
 ### Backend Implementation for User Story 1
 
 - [ ] T062 [US1] Create GL database migrations for `chart_of_accounts`, `financial_periods`, `journal_entries`, `journal_entry_lines` tables in `services/gl/migrations/`
@@ -186,6 +189,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T085 [US2] Write AP contract tests validating all proto RPCs (`VendorService`, `ApInvoiceService`, `PaymentService`, `ApAgingService`) in `services/ap/tests/contract_test.rs`
 - [ ] T086 [P] [US2] Write AP model tests for `Vendor`, `ApInvoice`, `ApInvoiceLine`, `Payment`, `PaymentInvoiceAllocation` in `services/ap/tests/model_test.rs`
 
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing AP contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
+
 ### Backend Implementation for User Story 2
 
 - [ ] T087 [US2] Create AP database migrations for `vendors`, `ap_invoices`, `ap_invoice_lines`, `payments`, `payment_invoice_allocations` tables in `services/ap/migrations/`
@@ -229,6 +234,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T109 [US3] Write AR contract tests validating all proto RPCs (`CustomerService`, `ArInvoiceService`, `ReceiptService`, `ArAgingService`) in `services/ar/tests/contract_test.rs`
 - [ ] T110 [P] [US3] Write AR model tests for `Customer`, `ArInvoice`, `ArInvoiceLine`, `Receipt`, `ReceiptInvoiceAllocation` in `services/ar/tests/model_test.rs`
 
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing AR contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
+
 ### Backend Implementation for User Story 3
 
 - [ ] T111 [US3] Create AR database migrations for `customers`, `ar_invoices`, `ar_invoice_lines`, `receipts`, `receipt_invoice_allocations` tables in `services/ar/migrations/`
@@ -271,7 +278,10 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Tests for User Story 8
 
 - [ ] T134 [US8] Write RBAC contract tests for `AuditLogService` and permission-enforced operations in `services/identity/tests/contract_test.rs`
+- [ ] T134a [P] [US8] Write identity contract tests for password policy validation and session management RPCs in `services/identity/tests/session_contract_test.rs`
 - [ ] T135 [P] [US8] Write RBAC integration test scenarios (role CRUD, permission enforcement, scope filtering, audit trail immutability) in `services/identity/tests/rbac_test.rs`
+
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing RBAC, session, and audit contract tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
 
 ### Backend Implementation for User Story 8
 
@@ -311,6 +321,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T153 [US9] Write workflow configuration contract tests (CRUD workflows with multi-step definitions, condition matching) in `services/workflow/tests/contract_test.rs`
 - [ ] T154 [P] [US9] Write workflow integration tests (multi-step approval chain, escalation timeout, delegation, notification delivery) in `services/workflow/tests/escalation_test.rs`
 
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing workflow contract and escalation tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
+
 ### Backend Implementation for User Story 9
 
 - [ ] T155 [US9] Implement full `ApprovalWorkflowService` CRUD with JSON condition parsing (amount thresholds, department matching, transaction type) in `services/workflow/src/service/workflow_service.rs`
@@ -348,6 +360,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 - [ ] T171 [US4] Write procurement contract tests validating all proto RPCs (`RequisitionService`, `PurchaseOrderService`, `GoodsReceiptService`) in `services/procurement/tests/contract_test.rs`
 - [ ] T172 [P] [US4] Write procurement model tests for `PurchaseRequisition`, `PurchaseOrder`, `GoodsReceipt` entities in `services/procurement/tests/model_test.rs`
+
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing procurement contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
 
 ### Backend Implementation for User Story 4
 
@@ -391,6 +405,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 - [ ] T195 [US5] Write reporting contract tests validating all proto RPCs (`StandardReportService`, `DashboardService`, `CustomReportService`, `ReportExportService`) in `services/reporting/tests/contract_test.rs`
 - [ ] T196 [P] [US5] Write reporting service tests for income statement, balance sheet, and cash flow calculations in `services/reporting/tests/report_test.rs`
+
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing reporting contract and calculation tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
 
 ### Backend Implementation for User Story 5
 
@@ -436,6 +452,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T220 [US6] Write budget contract tests validating all proto RPCs (`BudgetService`, `BudgetAnalysisService`) in `services/budget/tests/contract_test.rs`
 - [ ] T221 [P] [US6] Write budget model tests for `Budget`, `BudgetLine` entities in `services/budget/tests/model_test.rs`
 
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing budget contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
+
 ### Backend Implementation for User Story 6
 
 - [ ] T222 [US6] Scaffold budget service structure in `services/budget/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
@@ -471,6 +489,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 - [ ] T237 [US7] Write consolidation contract tests validating all proto RPCs (`LegalEntityService`, `ExchangeRateService`, `RevaluationService`, `ConsolidationService`) in `services/consolidation/tests/contract_test.rs`
 - [ ] T238 [P] [US7] Write consolidation model tests for `LegalEntity`, `ExchangeRate`, `ConsolidationRun` in `services/consolidation/tests/model_test.rs`
+
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing consolidation contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
 
 ### Backend Implementation for User Story 7
 
@@ -514,6 +534,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T260 [US10] Write tax contract tests validating all proto RPCs (`TaxRateService`, `TaxCalculationService`, `TaxReportService`) in `services/tax/tests/contract_test.rs`
 - [ ] T261 [P] [US10] Write tax model tests for `TaxRate`, `TaxTransaction` in `services/tax/tests/model_test.rs`
 
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing tax contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
+
 ### Backend Implementation for User Story 10
 
 - [ ] T262 [US10] Scaffold tax service structure in `services/tax/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
@@ -553,6 +575,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T280 [US11] Write asset contract tests validating all proto RPCs (`FixedAssetService`, `DepreciationService`) in `services/asset/tests/contract_test.rs`
 - [ ] T281 [P] [US11] Write asset model tests for `FixedAsset`, `DepreciationEntry`, `AssetDisposal` with depreciation calculations in `services/asset/tests/model_test.rs`
 
+**⏸ TDD GATE (Constitution Principle I)**: Pause. Present failing asset contract and model tests to the user. Implementation MUST NOT begin until the user explicitly approves the test suite.
+
 ### Backend Implementation for User Story 11
 
 - [ ] T282 [US11] Scaffold asset service structure in `services/asset/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
@@ -586,15 +610,30 @@ skip from test tasks directly to implementation tasks without user sign-off.
 **Purpose**: Improvements affecting multiple user stories, final validation, and production readiness
 
 - [ ] T300 [P] Add application-level caching with `moka` crate for frequently accessed data (chart of accounts, vendor/customer masters, exchange rates) with NATS-based cache invalidation across services
-- [ ] T301 [P] Implement circuit breaker pattern via `tower` for inter-service gRPC calls in gateway and reporting services (Constitution Principle V mandate)
+- [ ] T301 [P] Extend `crates/resilience/` circuit breaker with gateway-specific rate-limit-aware retry configuration and per-service tuning in `services/gateway/src/middleware/resilience.rs`
 - [ ] T304 [P] Implement comprehensive error handling with user-friendly error messages in `web/src/components/ErrorBoundary.tsx` and API error interceptors
 
 > **Note**: T302 (OpenTelemetry) and T303 (Prometheus metrics) have been promoted to Phase 1 as T016a (`crates/observability/`) to satisfy Constitution Principle V ("day-one observability"). All service bootstrap tasks now include observability integration.
 
 ### Edge Case Validation (Cross-Cutting)
 
-- [ ] T300a [P] [US1] Write GL edge-case tests: posting to closed period (spec edge 1), concurrent journal entry editing (spec edge 5), budget fully consumed posting (spec edge 7) in `services/gl/tests/edge_case_test.rs`
-- [ ] T300b [P] [US2] Write AP edge-case tests: vendor invoice exceeding PO amount (spec edge 5), concurrent invoice editing (spec edge 5) in `services/ap/tests/edge_case_test.rs`
+**Edge Case Coverage Map (spec.md Edge Cases 1–10)**:
+
+| # | Edge Case | Test Task |
+|---|-----------|-----------|
+| EC-1 | Post to closed financial period | T300a |
+| EC-2 | Missing or stale currency exchange rates | T300e |
+| EC-3 | Circular approval reference / no eligible approvers | T300f |
+| EC-4 | Concurrent editing of same invoice or journal entry | T300a, T300b |
+| EC-5 | Vendor invoice amount exceeds PO amount | T300b |
+| EC-6 | Customer payment not matching any open invoice (unapplied cash) | T300c |
+| EC-7 | Budget fully consumed, additional expense attempted | T300a |
+| EC-8 | Differing intercompany exchange rates during consolidation | T300e |
+| EC-9 | Tax rate changes mid-period | T300e |
+| EC-10 | Partial receipt / over-delivery against purchase order | T300d |
+
+- [ ] T300a [P] [US1] Write GL edge-case tests: posting to closed period (EC-1), concurrent journal entry editing (EC-4), budget fully consumed posting (EC-7) in `services/gl/tests/edge_case_test.rs`
+- [ ] T300b [P] [US2] Write AP edge-case tests: vendor invoice exceeding PO amount (EC-5), concurrent invoice editing (EC-4) in `services/ap/tests/edge_case_test.rs`
 - [ ] T300c [P] [US3] Write AR edge-case tests: unapplied cash / payment not matching any invoice (spec edge 6) in `services/ar/tests/edge_case_test.rs`
 - [ ] T300d [P] [US4] Write procurement edge-case tests: partial/over-delivery against PO (spec edge 10) in `services/procurement/tests/edge_case_test.rs`
 - [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), mid-period tax rate change (spec edge 9) in `services/consolidation/tests/edge_case_test.rs`
@@ -642,9 +681,9 @@ Phase 1 (Setup)
             │       ├── Phase 4 (US2 - AP)
             │       │       └── Phase 8 (US4 - Procurement)
             │       └── Phase 5 (US3 - AR)
-            │               └── Phase 12 (US10 - Tax) [also needs US2]
-            ├── Phase 6 (US8 - RBAC) [parallel with US1-US3]
-            ├── Phase 7 (US9 - Workflow) [parallel with US1-US3]
+            ├── Phase 6 (US8 - RBAC) [parallel, after Phase 2]
+            ├── Phase 7 (US9 - Workflow) [parallel, after Phase 2]
+            ├── Phase 12 (US10 - Tax) [needs US2 + US3]
             ├── Phase 9 (US5 - Reporting) [needs US1 + US2 + US3]
             ├── Phase 10 (US6 - Budget) [needs US1]
             ├── Phase 11 (US7 - Multi-Org) [needs US1]

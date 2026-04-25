@@ -21,7 +21,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 **Project Type**: Web service (microservices) + single-page web application
 **Performance Goals**: 100 concurrent users, <3s response time, <10s report generation for 100K transactions, approval notifications within 5s
 **Constraints**: Multi-tenant data isolation, 100% audit trail integrity, no manual GL corrections for currency
-**Scale/Scope**: 12 domain services + 1 gateway + 7 shared crates + 1 frontend SPA; ~30 endpoints per service; 14 key entities
+**Scale/Scope**: 12 domain services + 1 gateway + 9 shared crates + 1 frontend SPA; ~30 endpoints per service; 14 key entities (see spec.md Key Entities section)
 
 ## Constitution Check
 
@@ -98,6 +98,8 @@ fusion/
 │   ├── auth/                           # JWT validation, axum middleware
 │   ├── error/                          # Unified error types, API error mapping
 │   ├── messaging/                      # NATS publisher/subscriber abstraction
+│   ├── resilience/                     # Circuit breaker, retry policies, gRPC client interceptor
+│   ├── observability/                  # OpenTelemetry tracing, Prometheus metrics registry
 │   └── testing/                        # Test fixtures, mock services, DB seeders
 │
 ├── services/                           # Domain microservices
@@ -131,7 +133,7 @@ fusion/
 └── .specify/                           # SpecKit configuration
 ```
 
-**Structure Decision**: Cargo workspace with 13 binary crates under `services/` and 7 library crates under `crates/`. Each domain service has its own PostgreSQL database, `migrations/` directory, and follows a `handlers → service → repository` layered architecture. The gateway provides REST-to-gRPC translation for the React frontend. Proto definitions live in `proto/` at the repo root and are compiled into `crates/proto/` via `build.rs`.
+**Structure Decision**: Cargo workspace with 13 binary crates under `services/` and 9 library crates under `crates/`. Each domain service has its own PostgreSQL database, `migrations/` directory, and follows a `handlers → service → repository` layered architecture. The gateway provides REST-to-gRPC translation for the React frontend. Proto definitions live in `proto/` at the repo root and are compiled into `crates/proto/` via `build.rs`.
 
 ## Service Decomposition
 

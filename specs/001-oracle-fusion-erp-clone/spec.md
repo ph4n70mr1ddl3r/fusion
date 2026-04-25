@@ -71,7 +71,7 @@ As a purchasing agent, I need to create purchase requisitions, convert them to p
 
 1. **Given** an employee needs goods or services, **When** they submit a purchase requisition, **Then** the requisition is routed through the configured approval hierarchy based on amount and category.
 2. **Given** an approved requisition exists, **When** the purchasing agent converts it to a purchase order, **Then** a PO is generated with correct items, quantities, pricing, and supplier details.
-3. **Given** goods have been ordered, **When** the receiving team records receipt of goods, **Then** the system updates the PO status, creates an inventory receipt (if inventory is enabled), and makes the invoice available for AP matching.
+3. **Given** goods have been ordered, **When** the receiving team records receipt of goods, **Then** the system updates the PO status, records the goods receipt with quantity verification, and makes the invoice available for AP matching.
 4. **Given** a PO has partial receipts, **When** the purchasing agent reviews open POs, **Then** the system shows remaining quantities and expected delivery dates.
 
 ---
@@ -228,7 +228,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **FR-016**: System MUST support purchase requisition creation, editing, and submission for approval.
 - **FR-017**: System MUST allow conversion of approved requisitions to purchase orders with supplier assignment and pricing.
 - **FR-018**: System MUST support goods receipt recording against purchase orders with quantity verification.
-- **FR-019**: System MUST support three-way matching (PO, goods receipt, invoice) in the accounts payable process.
+- **FR-019**: System MUST support three-way matching (PO, goods receipt, invoice) in the accounts payable process. When a match fails (quantity or price variance exceeds a configurable tolerance threshold, default 5%), the system MUST place the invoice on hold and notify the AP clerk for manual review.
 
 **Reporting & Dashboards**
 - **FR-020**: System MUST generate standard financial reports: income statement, balance sheet, and cash flow statement.
@@ -250,7 +250,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 **Access Control & Security**
 - **FR-031**: System MUST provide role-based access control with configurable permissions per module, function, and data scope.
 - **FR-032**: System MUST log all user actions (create, read, update, delete) with user identity, timestamp, and affected record in an immutable audit log.
-- **FR-033**: System MUST enforce strong password policies and support session management with configurable timeouts.
+- **FR-033**: System MUST enforce strong password policies (minimum 12 characters, at least one uppercase letter, one digit, one special character) and support session management with configurable timeouts (default 30 minutes, configurable per tenant).
 
 **Workflow & Approvals**
 - **FR-034**: System MUST support configurable multi-step approval workflows for journal entries, invoices, and purchase orders based on rules (amount thresholds, department, transaction type).
@@ -291,13 +291,13 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **SC-001**: A financial controller can set up a complete chart of accounts and post the first journal entry within 30 minutes of initial system configuration.
 - **SC-002**: The system supports at least 100 concurrent users entering transactions without noticeable performance degradation (response times under 3 seconds for any transaction entry or report generation).
 - **SC-003**: All standard financial reports (income statement, balance sheet, cash flow, trial balance, aging reports) generate within 10 seconds for organizations with up to 100,000 posted transactions.
-- **SC-004**: 95% of users can complete their primary workflow (invoice entry, payment processing, report generation) on the first attempt without training documentation.
+- **SC-004**: *(Post-launch usability metric — not a buildable requirement)* 95% of users can complete their primary workflow (invoice entry, payment processing, report generation) on the first attempt without training documentation.
 - **SC-005**: The approval workflow routes and delivers notifications within 5 seconds of transaction submission, ensuring timely processing.
 - **SC-006**: The system maintains 100% audit trail accuracy — every posted transaction can be fully traced from source document to GL entry to financial report.
 - **SC-007**: Currency conversion and revaluation calculations are accurate to two decimal places with no manual corrections required.
 - **SC-008**: A new legal entity can be configured and transacting within 1 hour, demonstrating rapid multi-org deployment capability.
 - **SC-009**: The system handles end-of-period close processing (depreciation, revaluation, consolidation) for 1,000+ assets and 10,000+ journal entries within 5 minutes.
-- **SC-010**: 90% of users report the interface as intuitive and easy to navigate in post-deployment feedback.
+- **SC-010**: *(Post-launch usability metric — not a buildable requirement)* 90% of users report the interface as intuitive and easy to navigate in post-deployment feedback.
 
 ## Assumptions
 
