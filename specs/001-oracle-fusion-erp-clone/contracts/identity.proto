@@ -1,142 +1,53 @@
-// Identity & Access Management Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.identity.v1;
+option go_package = "github.com/fusion/identity/v1";
 
-import "common.proto";
+// Identity Service — authentication, user management, tenant provisioning
+// Consumed by: API gateway (REST→gRPC), all services (token validation via JWKS)
 
-// === User Management ===
+service IdentityService {
+  // Authentication
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc RequestPasswordReset(PasswordResetRequest) returns (PasswordResetResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
 
-service UserService {
+  // User management
   rpc CreateUser(CreateUserRequest) returns (User);
   rpc GetUser(GetUserRequest) returns (User);
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
   rpc UpdateUser(UpdateUserRequest) returns (User);
   rpc DeactivateUser(DeactivateUserRequest) returns (User);
+
+  // Tenant provisioning (admin only)
+  rpc CreateTenant(CreateTenantRequest) returns (Tenant);
+  rpc GetTenant(GetTenantRequest) returns (Tenant);
+  rpc SuspendTenant(SuspendTenantRequest) returns (Tenant);
+
+  // JWKS (called by other services at startup)
+  rpc GetJwks(GetJwksRequest) returns (JwksResponse);
 }
 
-message User {
-  string id = 1;
-  string email = 2;
-  string full_name = 3;
-  bool is_active = 4;
-  repeated Role roles = 5;
-  string last_login_at = 6;
-  fusion.common.v1.AuditInfo audit_info = 7;
-}
+// --- Messages ---
 
-message CreateUserRequest {
-  string email = 1;
-  string password = 2; // Plain text; service hashes with Argon2
-  string full_name = 3;
-  repeated string role_ids = 4;
-}
-
-message GetUserRequest {
-  string id = 1;
-}
-
-message ListUsersRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  bool active_only = 2;
-}
-
-message ListUsersResponse {
-  repeated User users = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message UpdateUserRequest {
-  string id = 1;
-  string full_name = 2;
-  string email = 3;
-}
-
-message DeactivateUserRequest {
-  string id = 1;
-}
-
-// === Role Management ===
-
-service RoleService {
-  rpc CreateRole(CreateRoleRequest) returns (Role);
-  rpc GetRole(GetRoleRequest) returns (Role);
-  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
-  rpc UpdateRole(UpdateRoleRequest) returns (Role);
-  rpc AssignRole(AssignRoleRequest) returns (fusion.common.v1.Empty);
-  rpc RevokeRole(RevokeRoleRequest) returns (fusion.common.v1.Empty);
-}
-
-message Role {
-  string id = 1;
-  string name = 2;
-  string description = 3;
-  repeated Permission permissions = 4;
-  fusion.common.v1.AuditInfo audit_info = 5;
-}
-
-message Permission {
-  string module = 1;  // "gl", "ap", "ar", "procurement", "reporting", etc.
-  string action = 2;  // "create", "read", "update", "delete", "post", "approve"
-  string scope = 3;   // "own", "department", "all"
-}
-
-message CreateRoleRequest {
-  string name = 1;
-  string description = 2;
-  repeated Permission permissions = 3;
-}
-
-message GetRoleRequest {
-  string id = 1;
-}
-
-message ListRolesRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-}
-
-message ListRolesResponse {
-  repeated Role roles = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message UpdateRoleRequest {
-  string id = 1;
-  string name = 2;
-  string description = 3;
-  repeated Permission permissions = 4;
-}
-
-message AssignRoleRequest {
-  string user_id = 1;
-  string role_id = 2;
-}
-
-message RevokeRoleRequest {
-  string user_id = 1;
-  string role_id = 2;
-}
-
-// === Authentication ===
-
-service AuthenticationService {
-  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
-  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
-  rpc Logout(LogoutRequest) returns (fusion.common.v1.Empty);
-}
-
-message AuthenticateRequest {
+message LoginRequest {
   string email = 1;
   string password = 2;
 }
 
-message AuthenticateResponse {
-  string access_token = 1;  // JWT, 15-minute expiry
-  string refresh_token = 2; // 7-day expiry
-  User user = 3;
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_at_unix = 3;
+  User user = 4;
 }
+
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+message LogoutResponse {}
 
 message RefreshTokenRequest {
   string refresh_token = 1;
@@ -145,46 +56,109 @@ message RefreshTokenRequest {
 message RefreshTokenResponse {
   string access_token = 1;
   string refresh_token = 2;
+  int64 expires_at_unix = 3;
 }
 
-message LogoutRequest {
-  string refresh_token = 1; // To revoke the refresh token
+message PasswordResetRequest {
+  string email = 1;
 }
 
-// === Audit Log ===
-
-service AuditLogService {
-  rpc GetAuditLog(GetAuditLogRequest) returns (AuditLogEntry);
-  rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
+message PasswordResetResponse {
+  // Always returns OK to prevent email enumeration
 }
 
-message AuditLogEntry {
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {}
+
+message CreateUserRequest {
+  string email = 1;
+  string password = 2;
+  string display_name = 3;
+  string tenant_id = 4;   // resolved from auth context for non-admin
+  optional string department_id = 5;
+  repeated string role_ids = 6;
+}
+
+message GetUserRequest {
   string id = 1;
-  string user_id = 2;
-  string action = 3;    // CREATE, READ, UPDATE, DELETE, LOGIN, LOGOUT
-  string module = 4;
-  string entity_type = 5;
-  string entity_id = 6;
-  string changes = 7;   // JSON: { "field": "status", "old": "DRAFT", "new": "POSTED" }
-  string ip_address = 8;
-  string timestamp = 9;
 }
 
-message GetAuditLogRequest {
+message ListUsersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional bool is_active = 3;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateUserRequest {
+  string id = 1;
+  optional string display_name = 2;
+  optional string department_id = 3;
+  optional bool is_active = 4;
+  repeated string role_ids = 5;
+}
+
+message DeactivateUserRequest {
   string id = 1;
 }
 
-message ListAuditLogsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string user_id = 2;
-  string module = 3;
-  string entity_type = 4;
-  string entity_id = 5;
-  string date_from = 6;
-  string date_to = 7;
+message CreateTenantRequest {
+  string name = 1;
+  string slug = 2;
+  string plan = 3;
 }
 
-message ListAuditLogsResponse {
-  repeated AuditLogEntry entries = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
+message GetTenantRequest {
+  string id = 1;
+}
+
+message SuspendTenantRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message GetJwksRequest {}
+
+message JwksResponse {
+  string jwks_json = 1;  // RFC 7517 JSON
+}
+
+// --- Domain models ---
+
+message User {
+  string id = 1;
+  string tenant_id = 2;
+  string email = 3;
+  string display_name = 4;
+  optional string department_id = 5;
+  bool is_active = 6;
+  repeated Role roles = 7;
+  int64 last_login_at_unix = 8;
+  int64 created_at_unix = 9;
+  int64 updated_at_unix = 10;
+}
+
+message Tenant {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string status = 4;
+  string plan = 5;
+  int64 created_at_unix = 6;
+}
+
+message Role {
+  string id = 1;
+  string name = 2;
+  repeated string permissions = 3;
+  string data_scope = 4;  // OWN, DEPARTMENT, ALL
 }

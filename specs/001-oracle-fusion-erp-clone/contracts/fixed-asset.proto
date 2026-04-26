@@ -1,0 +1,163 @@
+syntax = "proto3";
+package fusion.fixedasset.v1;
+option go_package = "github.com/fusion/fixedasset/v1";
+
+// Fixed Asset Service — asset register, depreciation, disposal
+// Consumed by: API gateway, GL service (period close), reporting service
+
+service FixedAssetService {
+  rpc CreateAsset(CreateAssetRequest) returns (Asset);
+  rpc GetAsset(GetAssetRequest) returns (Asset);
+  rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
+  rpc UpdateAsset(UpdateAssetRequest) returns (Asset);
+
+  // Depreciation
+  rpc RunDepreciation(RunDepreciationRequest) returns (DepreciationRun);
+  rpc GetDepreciationRun(GetDepreciationRunRequest) returns (DepreciationRun);
+  rpc ListDepreciationRuns(ListDepreciationRunsRequest) returns (ListDepreciationRunsResponse);
+
+  // Disposal
+  rpc DisposeAsset(DisposeAssetRequest) returns (AssetDisposal);
+  rpc GetDisposal(GetDisposalRequest) returns (AssetDisposal);
+  rpc ListDisposals(ListDisposalsRequest) returns (ListDisposalsResponse);
+
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
+}
+
+// --- Messages ---
+
+message CreateAssetRequest {
+  string asset_code = 1;
+  string description = 2;
+  string acquisition_date = 3;
+  Decimal acquisition_cost = 4;
+  int32 useful_life_months = 5;
+  string depreciation_method = 6;  // STRAIGHT_LINE, DECLINING_BALANCE
+  optional Decimal declining_balance_rate = 7;
+  Decimal salvage_value = 8;
+  string depreciation_account_id = 9;
+  string asset_account_id = 10;
+  string accumulated_dep_account_id = 11;
+  optional string location = 12;
+  string legal_entity_id = 13;
+}
+
+message GetAssetRequest { string id = 1; }
+
+message ListAssetsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional string legal_entity_id = 4;
+}
+
+message ListAssetsResponse {
+  repeated Asset assets = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateAssetRequest {
+  string id = 1;
+  optional string description = 2;
+  optional string location = 3;
+  int32 version = 4;
+}
+
+message RunDepreciationRequest {
+  string period_id = 1;
+  optional string legal_entity_id = 2;
+}
+
+message GetDepreciationRunRequest { string id = 1; }
+
+message ListDepreciationRunsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string period_id = 3;
+}
+
+message ListDepreciationRunsResponse {
+  repeated DepreciationRun runs = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DisposeAssetRequest {
+  string asset_id = 1;
+  string disposal_date = 2;
+  Decimal disposal_proceeds = 3;
+}
+
+message GetDisposalRequest { string id = 1; }
+
+message ListDisposalsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string asset_id = 3;
+}
+
+message ListDisposalsResponse {
+  repeated AssetDisposal disposals = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
+
+// --- Domain models ---
+
+message Asset {
+  string id = 1;
+  string asset_code = 2;
+  string description = 3;
+  string acquisition_date = 4;
+  Decimal acquisition_cost = 5;
+  int32 useful_life_months = 6;
+  string depreciation_method = 7;
+  optional Decimal declining_balance_rate = 8;
+  Decimal salvage_value = 9;
+  Decimal accumulated_depreciation = 10;
+  Decimal net_book_value = 11;
+  string depreciation_account_id = 12;
+  string asset_account_id = 13;
+  string accumulated_dep_account_id = 14;
+  optional string location = 15;
+  string status = 16;
+  string legal_entity_id = 17;
+  int32 version = 18;
+  int64 created_at_unix = 19;
+  int64 updated_at_unix = 20;
+}
+
+message DepreciationRun {
+  string id = 1;
+  string period_id = 2;
+  string run_date = 3;
+  string status = 4;
+  Decimal total_depreciation = 5;
+  string correlation_id = 6;
+  optional string posted_journal_entry_id = 7;
+  int64 created_at_unix = 8;
+}
+
+message AssetDisposal {
+  string id = 1;
+  string asset_id = 2;
+  string disposal_date = 3;
+  Decimal disposal_proceeds = 4;
+  Decimal net_book_value_at_disposal = 5;
+  Decimal gain_loss_amount = 6;
+  string correlation_id = 7;
+  optional string posted_journal_entry_id = 8;
+  int64 created_at_unix = 9;
+}
+
+message Decimal {
+  int64 units = 1;
+  int32 nanos = 2;
+}

@@ -1,119 +1,117 @@
-// Tax Management Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.tax.v1;
+option go_package = "github.com/fusion/tax/v1";
 
-import "common.proto";
+// Tax Service — tax rates, tax calculation, tax reports
+// Consumed by: API gateway, AP service, AR service (tax calculation)
 
-// === Tax Rate Management ===
+service TaxService {
+  rpc CreateTaxCode(CreateTaxCodeRequest) returns (TaxCode);
+  rpc GetTaxCode(GetTaxCodeRequest) returns (TaxCode);
+  rpc ListTaxCodes(ListTaxCodesRequest) returns (ListTaxCodesResponse);
+  rpc UpdateTaxCode(UpdateTaxCodeRequest) returns (TaxCode);
 
-service TaxRateService {
-  rpc CreateTaxRate(CreateTaxRateRequest) returns (TaxRate);
-  rpc GetTaxRate(GetTaxRateRequest) returns (TaxRate);
-  rpc ListTaxRates(ListTaxRatesRequest) returns (ListTaxRatesResponse);
-  rpc UpdateTaxRate(UpdateTaxRateRequest) returns (TaxRate);
+  rpc CalculateTax(CalculateTaxRequest) returns (CalculateTaxResponse);
+  rpc GetTaxReport(GetTaxReportRequest) returns (GetTaxReportResponse);
+
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
 }
 
-message TaxRate {
-  string id = 1;
-  string tax_code = 2;
-  string name = 3;
-  string jurisdiction = 4;
-  string rate_percentage = 5; // Decimal as string, e.g., "8.25"
-  string tax_category = 6;    // "sales", "vat", "gst", etc.
-  string effective_from = 7;
-  string effective_to = 8;
-  bool is_active = 9;
-  fusion.common.v1.AuditInfo audit_info = 10;
-}
+// --- Messages ---
 
-message CreateTaxRateRequest {
-  string tax_code = 1;
+message CreateTaxCodeRequest {
+  string code = 1;
   string name = 2;
   string jurisdiction = 3;
-  string rate_percentage = 4;
-  string tax_category = 5;
-  string effective_from = 6;
-  string effective_to = 7;
+  Decimal rate_percentage = 4;
+  string effective_from = 5;
+  optional string effective_to = 6;
+  string tax_category = 7;
 }
 
-message GetTaxRateRequest {
+message GetTaxCodeRequest { string id = 1; }
+
+message ListTaxCodesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string jurisdiction = 3;
+  optional string tax_category = 4;
+  optional bool is_active = 5;
+}
+
+message ListTaxCodesResponse {
+  repeated TaxCode tax_codes = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateTaxCodeRequest {
   string id = 1;
-}
-
-message ListTaxRatesRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string jurisdiction = 2;
-  string tax_category = 3;
-  bool active_only = 4;
-}
-
-message ListTaxRatesResponse {
-  repeated TaxRate rates = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message UpdateTaxRateRequest {
-  string id = 1;
-  string name = 2;
-  string rate_percentage = 3;
-  string effective_to = 4;
-}
-
-// === Tax Calculation ===
-
-service TaxCalculationService {
-  rpc CalculateTax(CalculateTaxRequest) returns (CalculateTaxResponse);
+  optional string name = 2;
+  optional Decimal rate_percentage = 3;
+  optional string effective_to = 4;
+  optional bool is_active = 5;
+  int32 version = 6;
 }
 
 message CalculateTaxRequest {
-  string tax_code = 1;
-  fusion.common.v1.Money taxable_amount = 2;
-  string transaction_date = 3; // For effective date lookup
+  string tax_code_id = 1;
+  Decimal taxable_amount = 2;
+  string transaction_date = 3;
 }
 
 message CalculateTaxResponse {
-  string tax_rate_id = 1;
-  string tax_code = 2;
-  string rate_percentage = 3;
-  fusion.common.v1.Money taxable_amount = 4;
-  fusion.common.v1.Money tax_amount = 5;
+  Decimal tax_amount = 1;
+  Decimal rate_used = 2;
+  string tax_code_id = 3;
 }
 
-// === Tax Reporting ===
-
-service TaxReportService {
-  rpc GetTaxReport(TaxReportRequest) returns (TaxReport);
+message GetTaxReportRequest {
+  string period_id = 1;
+  optional string jurisdiction = 2;
+  optional string tax_category = 3;
 }
 
-message TaxReportRequest {
-  int32 period_year = 1;
-  int32 period_number = 2;
-  string jurisdiction = 3; // Optional filter
-  string tax_category = 4; // Optional filter
-}
-
-message TaxReport {
-  int32 period_year = 1;
-  int32 period_number = 2;
-  repeated TaxReportLine lines = 3;
-  TaxReportTotals totals = 4;
+message GetTaxReportResponse {
+  repeated TaxReportLine lines = 1;
+  Decimal total_tax_collected = 2;
+  Decimal total_tax_owed = 3;
+  string period_name = 4;
 }
 
 message TaxReportLine {
-  string jurisdiction = 1;
-  string tax_category = 2;
-  string tax_code = 3;
-  fusion.common.v1.Money taxable_amount = 4;
-  fusion.common.v1.Money tax_collected = 5;  // From AR invoices
-  fusion.common.v1.Money tax_owed = 6;       // From AP invoices
-  fusion.common.v1.Money net_tax = 7;        // collected - owed
+  string tax_code = 1;
+  string jurisdiction = 2;
+  Decimal taxable_amount = 3;
+  Decimal tax_amount = 4;
+  Decimal rate_percentage = 5;
+  int32 transaction_count = 6;
 }
 
-message TaxReportTotals {
-  fusion.common.v1.Money total_tax_collected = 1;
-  fusion.common.v1.Money total_tax_owed = 2;
-  fusion.common.v1.Money total_net_tax = 3;
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
+
+// --- Domain models ---
+
+message TaxCode {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string jurisdiction = 4;
+  Decimal rate_percentage = 5;
+  string effective_from = 6;
+  optional string effective_to = 7;
+  string tax_category = 8;
+  bool is_active = 9;
+  int32 version = 10;
+  int64 created_at_unix = 11;
+  int64 updated_at_unix = 12;
+}
+
+message Decimal {
+  int64 units = 1;
+  int32 nanos = 2;
 }

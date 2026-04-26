@@ -257,19 +257,20 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 
 **Multi-Org & Multi-Currency**
 - **FR-027**: System MUST support multiple legal entities, each with its own independent ledger and reporting hierarchy.
-- **FR-028**: System MUST support transaction entry and reporting in multiple currencies with configurable exchange rates.
+- **FR-028**: System MUST support transaction entry and reporting in multiple currencies with manually maintained exchange rates. Administrators enter rates via a currency management UI specifying currency pair, rate, and effective date. Automated exchange rate feeds are deferred to a future enhancement.
 - **FR-029**: System MUST perform period-end currency revaluation and post unrealized gains/losses automatically.
 - **FR-030**: System MUST support financial consolidation with intercompany elimination and currency translation.
 
 **Access Control & Security**
 - **FR-031**: System MUST provide role-based access control with configurable permissions per module, function, and data scope. Data scopes MUST include: `OWN` (records created by the user — requires `created_by_user_id` on all transactional entities), `DEPARTMENT` (records within the user's department — requires `department_id` on all transactional entities, populated from the creating user's department), and `ALL` (all records within the tenant).
-- **FR-032**: System MUST log all user actions (create, read, update, delete) with user identity, timestamp, and affected record in an immutable audit log. This security audit log is distinct from the financial audit trail (FR-006) which tracks financial transaction lineage.
+- **FR-032**: System MUST log all user actions (create, read, update, delete) with user identity, timestamp, and affected record in an immutable audit log. This security audit log is distinct from the financial audit trail (FR-006) which tracks financial transaction lineage. All audit log data and financial records MUST be retained for a minimum of 7 years, after which automated purge is performed. Retention period is fixed (not configurable per-tenant) in v1.
 - **FR-033**: System MUST enforce strong password policies (minimum 12 characters, at least one uppercase letter, one digit, one special character) and support session management with configurable timeouts (default 30 minutes, configurable per tenant).
 - **FR-033a**: System MUST support user authentication via email/password with Argon2 hashing, JWT RS256 access tokens and refresh tokens, including login, logout, token refresh flows, and password recovery via email-based reset link with configurable expiry (default 1 hour).
+- **FR-033b**: The API gateway MUST enforce per-tenant rate limiting at a fixed rate of 1000 requests per minute per tenant. Requests exceeding the limit MUST receive HTTP 429 (Too Many Requests) with a `Retry-After` header. Rate limiting is applied uniformly across all endpoints; per-endpoint tier limits are deferred to a future enhancement.
 
 **Workflow & Approvals**
 - **FR-034**: System MUST support configurable multi-step approval workflows for journal entries, invoices, and purchase orders based on rules (amount thresholds, department, transaction type).
-- **FR-035**: System MUST send notifications to approvers when transactions require their action, with email or in-app notification support.
+- **FR-035**: System MUST send in-app notifications to approvers when transactions require their action. Notifications are delivered via a polling-based mechanism with a notifications page and bell icon badge showing unread count. General notification email delivery (approval alerts, system notifications) is deferred to a future enhancement. Transactional/auth emails (password reset links per FR-033a) are included in v1 and delivered via the notification service's SMTP transport.
 - **FR-036**: System MUST support approval delegation and escalation with configurable timeout periods.
 
 **Tax Management**
@@ -317,6 +318,16 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **SC-009**: The system handles end-of-period close processing (depreciation, revaluation, consolidation) for 1,000+ assets and 10,000+ journal entries within 5 minutes.
 - **SC-010**: *(Post-launch usability metric — not a buildable requirement)* 90% of users report the interface as intuitive and easy to navigate in post-deployment feedback.
 
+## Clarifications
+
+### Session 2026-04-26
+
+- Q: What is the multi-tenancy data isolation model? → A: Database-per-tenant — each tenant gets its own PostgreSQL database per service, with connection routing at the gateway/service layer.
+- Q: What notification delivery mechanisms are included in v1? → A: In-app only (polling-based, with notifications page and bell icon badge). Email and WebSocket push deferred to future enhancement.
+- Q: What is the data retention policy for audit logs and financial records? → A: Fixed 7-year retention for all audit/financial data (industry standard for financial compliance). No per-tenant configuration in v1.
+- Q: What is the API rate limiting strategy? → A: Per-tenant fixed-rate limiting (1000 requests/minute per tenant) enforced at the API gateway.
+- Q: How are multi-currency exchange rates populated in v1? → A: Manual exchange rate entry only — administrators enter and maintain rates via a UI. No automated feeds or CSV bulk import for rates in v1.
+
 ## Assumptions
 
 - The target users are mid-to-large enterprises that need a comprehensive cloud-based financial management system.
@@ -324,7 +335,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - The system will be delivered as a web application accessible via modern browsers (Chrome, Firefox, Safari, Edge).
 - Standard email/password authentication with JWT tokens is the default authentication mechanism in v1.
 - Single sign-on (SSO) integration (SAML 2.0, OIDC) is a future enhancement; the identity service architecture supports extension via pluggable authentication providers.
-- The system will be multi-tenant at the infrastructure level, with complete data isolation between organizations.
+- The system uses a **database-per-tenant** isolation model: each tenant (organization) gets its own PostgreSQL database per service. Connection routing is handled at the API gateway/service layer based on the authenticated user's tenant ID. This ensures complete data isolation, simplifies per-tenant backup/restore, and eliminates cross-tenant data leak risks at the query level.
 - Mobile-responsive design is expected but native mobile applications are out of scope for the initial version.
 - Data export via CSV is supported for all data tables (reports, lists, registers) from v1.
 - Data import via CSV/Excel file upload is supported for budget amounts (FR-024) and chart of accounts initialization in v1.

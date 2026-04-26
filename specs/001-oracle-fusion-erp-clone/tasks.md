@@ -58,6 +58,9 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T011 [P] Implement `crates/messaging/` with NATS JetStream publisher/subscriber abstraction using `async-nats` crate
 - [ ] T011a [P] Implement `crates/resilience/` shared crate with circuit breaker pattern (via `tower`), configurable retry policies, and gRPC client interceptor — all inter-service calls MUST use this interceptor for day-one reliability (Constitution Principle V)
 - [ ] T012 [P] Implement `crates/testing/` with test fixtures, mock gRPC services, DB seeders, and `TestDb` helper for isolated test databases with tenant context seeding (create test tenants with separate data sets)
+- [ ] T012a [P] Implement `crates/audit/` with append-only audit log middleware (write user ID, action, entity type, entity ID, timestamp, change diff as JSONB to per-service `audit_log` table), configurable retention partitioning by month
+- [ ] T012b [P] Implement `crates/pagination/` with cursor-based pagination (encode/decode opaque page tokens from base64-encoded `{last_seen_id, sort_key}`, page size limits with configurable max of 100)
+- [ ] T012c [P] Implement `crates/export/` with PDF generation via `genpdf` (table layouts, headers/footers, page numbers) and XLSX generation via `rust_xlsxwriter` (multi-sheet, styled headers, auto-width columns)
 - [ ] T013 [P] Configure CI pipeline in `.github/workflows/ci.yml` with: `RUSTFLAGS="-D warnings"` cargo build, `cargo llvm-cov nextest --lcov --output-path lcov.info` (≥90% line coverage gate via `cargo llvm-cov --fail-under-lines 90`), cargo clippy -- -D warnings, cargo fmt --check, and cargo audit
 - [ ] T014 [P] Create `.env.example` with all service environment variables (DATABASE_URL, NATS_URL, JWT_PUBLIC_KEY_PATH, RUST_LOG, etc.)
 - [ ] T015 Generate RSA-2048 key pair in `keys/private.pem` and `keys/public.pem` for JWT signing/verification
@@ -100,10 +103,6 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T030 Implement identity gRPC handlers for `UserService`, `RoleService`, `AuthenticationService` in `services/identity/src/handlers/`
 - [ ] T031 Implement identity server bootstrap with health/readiness endpoints, gRPC server startup, and `crates/observability` integration (tracing + Prometheus metrics) in `services/identity/src/main.rs`
 - [ ] T032 Write identity service integration tests (registration, login, token refresh, role assignment) in `services/identity/tests/integration_test.rs`
-### Cross-Cutting Validation
-
-- [ ] T032a [P] Write multi-tenant isolation tests in `services/gateway/tests/tenant_isolation_test.rs` — authenticate as tenant A user, verify GL/AP/AR endpoints return only tenant A data; attempt to access tenant B resources by ID, verify 403 Forbidden; verify no cross-tenant data leakage in list endpoints
-
 ### API Gateway
 
 - [ ] T033 Scaffold gateway service structure in `services/gateway/` with `Cargo.toml`, `src/main.rs`, `src/routes/`, `src/middleware/`
@@ -395,7 +394,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Backend Implementation for User Story 4
 
 - [ ] T173 [US4] Scaffold procurement service structure in `services/procurement/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
-- [ ] T174 [US4] Create procurement database migrations for `purchase_requisitions`, `requisition_lines`, `purchase_orders`, `purchase_order_lines`, `goods_receipts`, `goods_receipt_lines` tables in `services/procurement/migrations/`
+- [ ] T174 [US4] Create procurement database migrations for `purchase_requisitions`, `requisition_lines`, `purchase_orders`, `purchase_order_lines`, `goods_receipts`, `goods_receipt_lines` tables in `services/procurement/migrations/` — include `created_by_user_id UUID` and `department_id UUID` columns on `purchase_requisitions`, `purchase_orders`, and `goods_receipts` for RBAC scope filtering (FR-031)
 - [ ] T175 [US4] Implement `PurchaseRequisition` model and `RequisitionRepository` (CRUD, status transitions, requester filtering) in `services/procurement/src/repository/requisition_repo.rs`
 - [ ] T176 [P] [US4] Implement `PurchaseOrder` model and `PurchaseOrderRepository` (CRUD, status transitions, vendor filtering, quantity tracking) in `services/procurement/src/repository/po_repo.rs`
 - [ ] T177 [P] [US4] Implement `GoodsReceipt` model and `GoodsReceiptRepository` (CRUD, PO line quantity updates) in `services/procurement/src/repository/goods_receipt_repo.rs`
@@ -444,7 +443,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T197 [US5] Scaffold reporting service structure in `services/reporting/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
 - [ ] T198 [US5] Create reporting database migration for `saved_reports` table in `services/reporting/migrations/`
 - [ ] T199 [US5] Implement `SavedReportRepository` (CRUD, filtering by type and creator) in `services/reporting/src/repository/report_repo.rs`
-- [ ] T200 [US5] Implement gRPC client wrappers for GL, AP, AR services (all clients MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/reporting/src/clients/` (GL client for account balances, AP client for payables, AR client for receivables)
+- [ ] T200 [US5] Implement gRPC client wrappers for GL, AP, AR, Budget services (all clients MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/reporting/src/clients/` (GL client for account balances, AP client for payables, AR client for receivables, Budget client for budget actuals — required by FR-022 custom report builder data source)
 - [ ] T201 [US5] Implement `IncomeStatementService` (aggregate GL revenue/expense accounts by period, support comparison periods) in `services/reporting/src/service/income_statement_service.rs`
 - [ ] T202 [P] [US5] Implement `BalanceSheetService` (aggregate GL asset/liability/equity accounts as of date, verify balancing) in `services/reporting/src/service/balance_sheet_service.rs`
 - [ ] T203 [P] [US5] Implement `CashFlowStatementService` (indirect method: reconcile net income to operating cash flows using balance sheet changes, plus investing/financing activities from GL account classification) in `services/reporting/src/service/cash_flow_service.rs`
@@ -488,7 +487,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Backend Implementation for User Story 6
 
 - [ ] T222 [US6] Scaffold budget service structure in `services/budget/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
-- [ ] T223 [US6] Create budget database migrations for `budgets`, `budget_lines` tables in `services/budget/migrations/`
+- [ ] T223 [US6] Create budget database migrations for `budgets`, `budget_lines` tables in `services/budget/migrations/` — include `created_by_user_id UUID` and `department_id UUID` columns on `budgets` for RBAC scope filtering (FR-031)
 - [ ] T224 [US6] Implement `Budget` model and `BudgetRepository` (CRUD, status transitions, department filtering) in `services/budget/src/repository/budget_repo.rs`
 - [ ] T225 [US6] Implement `BudgetService` (create with lines, approve, upload from CSV/Excel file, calculate totals) in `services/budget/src/service/budget_service.rs`
 - [ ] T226 [US6] Implement budget GL event subscriber (update `actual_amount` on budget lines when GL journal entries are posted; all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/budget/src/subscriber.rs`
@@ -570,7 +569,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Backend Implementation for User Story 10
 
 - [ ] T262 [US10] Scaffold tax service structure in `services/tax/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
-- [ ] T263 [US10] Create tax database migrations for `tax_rates`, `tax_transactions` tables in `services/tax/migrations/`
+- [ ] T263 [US10] Create tax database migrations for `tax_rates`, `tax_transactions` tables in `services/tax/migrations/` — include `created_by_user_id UUID` and `department_id UUID` columns on `tax_transactions` for RBAC scope filtering (FR-031)
 - [ ] T264 [US10] Implement `TaxRate` model and `TaxRateRepository` (CRUD, effective date range queries, jurisdiction filtering) in `services/tax/src/repository/rate_repo.rs`
 - [ ] T265 [P] [US10] Implement `TaxTransaction` model and `TaxTransactionRepository` (create, query by period/jurisdiction) in `services/tax/src/repository/transaction_repo.rs`
 - [ ] T266 [US10] Implement `TaxRateService` (create, get, list, update with effective date management) in `services/tax/src/service/rate_service.rs`
@@ -611,7 +610,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Backend Implementation for User Story 11
 
 - [ ] T282 [US11] Scaffold asset service structure in `services/asset/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
-- [ ] T283 [US11] Create asset database migrations for `fixed_assets`, `depreciation_entries`, `asset_disposals` tables in `services/asset/migrations/`
+- [ ] T283 [US11] Create asset database migrations for `fixed_assets`, `depreciation_entries`, `asset_disposals` tables in `services/asset/migrations/` — include `created_by_user_id UUID` and `department_id UUID` columns on `fixed_assets` for RBAC scope filtering (FR-031)
 - [ ] T284 [US11] Implement `FixedAsset` model and `AssetRepository` (CRUD, status filtering, location filtering) in `services/asset/src/repository/asset_repo.rs`
 - [ ] T285 [P] [US11] Implement `DepreciationEntry` model and `DepreciationRepository` (create entries, query by asset/period, history) in `services/asset/src/repository/depreciation_repo.rs`
 - [ ] T286 [US11] Implement `FixedAssetService` (create asset with GL account references, get, list, update details, get asset register) — validate depreciation method is one of [StraightLine, DecliningBalance] on creation (FR-041) in `services/asset/src/service/asset_service.rs`
@@ -643,6 +642,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T300 [P] Add application-level caching with `moka` crate for frequently accessed data (chart of accounts, vendor/customer masters, exchange rates) with NATS-based cache invalidation across services
 - [ ] T301 [P] Extend `crates/resilience/` circuit breaker with gateway-specific rate-limit-aware retry configuration and per-service tuning in `services/gateway/src/middleware/resilience.rs`
 - [ ] T304 [P] Implement comprehensive error handling with user-friendly error messages in `web/src/components/ErrorBoundary.tsx` and API error interceptors
+- [ ] T032a [P] Write multi-tenant isolation tests in `services/gateway/tests/tenant_isolation_test.rs` — authenticate as tenant A user, verify GL/AP/AR endpoints return only tenant A data; attempt to access tenant B resources by ID, verify 403 Forbidden; verify no cross-tenant data leakage in list endpoints
 
 > **Note**: T302 (OpenTelemetry) and T303 (Prometheus metrics) have been promoted to Phase 1 as T016a (`crates/observability/`) to satisfy Constitution Principle V ("day-one observability"). All service bootstrap tasks now include observability integration.
 

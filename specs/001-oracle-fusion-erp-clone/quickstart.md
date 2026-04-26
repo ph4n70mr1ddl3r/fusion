@@ -1,242 +1,214 @@
-# Quickstart Guide: Oracle Fusion Cloud ERP Clone
+# Quick Start Guide: Oracle Fusion Cloud ERP Clone
 
-**Date**: 2026-04-25 | **Branch**: `001-oracle-fusion-erp-clone`
+**Branch**: `001-oracle-fusion-erp-clone` | **Date**: 2026-04-26
 
 ## Prerequisites
 
-- **Rust**: Latest stable toolchain (`rustup update stable`)
-- **Node.js**: v20+ and npm v10+ (for frontend)
-- **Docker** + **Docker Compose**: For local PostgreSQL and NATS
+- **Rust**: Latest stable (MSRV pinned in `rust-toolchain.toml`)
+- **Node.js**: 20+ (for frontend)
+- **Docker**: 24+ and Docker Compose v2
+- **PostgreSQL**: 16+ (via Docker or local)
+- **NATS**: 2.x with JetStream (via Docker)
 - **sqlx-cli**: `cargo install sqlx-cli --no-default-features --features postgres`
-- **protoc**: Protocol Buffer compiler (`apt install protobuf-compiler` or `brew install protobuf`)
-- **cargo-nextest** (optional): `cargo install cargo-nextest` (faster test runner)
+- **protoc**: Protocol Buffers compiler (v3.x)
 
-## Initial Setup
-
-### 1. Clone and enter the repository
+## One-Command Development Start
 
 ```bash
-git clone <repo-url> fusion
-cd fusion
-git checkout 001-oracle-fusion-erp-clone
-```
+# Start all infrastructure (PostgreSQL, NATS, MailHog)
+docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
 
-### 2. Start infrastructure
-
-```bash
-docker compose up -d postgres nats
-# This starts:
-#   - PostgreSQL on port 5432 (per-service databases created automatically)
-#   - NATS with JetStream on port 4222
-#   - NATS monitoring on port 8222
-```
-
-### 3. Build the workspace
-
-```bash
-# Build all crates (workspace)
+# Build all services
 cargo build
 
-# Build a specific service
-cargo build -p service-gl
+# Run database migrations for a tenant (example)
+sqlx migrate run --database-url "postgres://fusion:fusion@localhost:5432/fusion_gl_tenant_001" --source services/gl/migrations
+
+# Start all services
+cargo run --bin fusion-gateway &
+cargo run --bin fusion-gl &
+cargo run --bin fusion-ap &
+cargo run --bin fusion-ar &
+# ... or use Docker Compose for all services
 ```
 
-### 4. Run database migrations
+## Project Structure
 
-```bash
-# Run migrations for a specific service
-cd services/gl
-sqlx migrate run
-cd ../..
-
-# Or use the workspace-level helper (if configured)
-cargo run -p service-gl -- --migrate-only
+```text
+fusion/
+├── Cargo.toml                    # Workspace root
+├── rust-toolchain.toml           # MSRV pin
+├── docker-compose.yml            # Base infrastructure + service definitions
+├── docker-compose.override.yml   # Dev overrides (MailHog, hot reload)
+├── docker-compose.prod.yml       # Production overrides (resource limits)
+├── .env.example                  # Environment variable template
+│
+├── contracts/                    # Proto definitions (source of truth)
+│   ├── identity.proto
+│   ├── gl.proto
+│   ├── ap.proto
+│   ├── ar.proto
+│   ├── procurement.proto
+│   ├── reporting.proto
+│   ├── budget.proto
+│   ├── consolidation.proto
+│   ├── fixed-asset.proto
+│   ├── tax.proto
+│   ├── workflow.proto
+│   └── notification.proto
+│
+├── crates/
+│   ├── proto/                    # Generated protobuf Rust types
+│   ├── types/                    # Shared domain types (Decimal, Money, etc.)
+│   ├── auth/                     # JWT validation, tenant resolution middleware
+│   ├── db/                       # Database connection pool management, tenant routing
+│   ├── audit/                    # Audit log middleware and repository
+│   ├── error/                    # Unified error types and gRPC→HTTP mapping
+│   ├── observability/            # tracing, OpenTelemetry, Prometheus setup
+│   ├── pagination/               # Cursor-based pagination utilities
+│   ├── testing/                  # Test helpers, mock factories, fixture loaders
+│   └── export/                   # PDF/XLSX generation utilities
+│
+├── services/
+│   ├── gateway/                  # API gateway (axum, REST→gRPC translation)
+│   ├── identity/                 # Authentication, users, tenants
+│   ├── gl/                       # General Ledger
+│   ├── ap/                       # Accounts Payable
+│   ├── ar/                       # Accounts Receivable
+│   ├── procurement/              # Purchase requisitions & orders
+│   ├── reporting/                # Reports & dashboards
+│   ├── budget/                   # Budget management
+│   ├── consolidation/            # Multi-org & currency
+│   ├── fixed-asset/              # Fixed asset management
+│   ├── tax/                      # Tax calculation & reporting
+│   ├── workflow/                 # Approval workflows
+│   └── notification/             # In-app notifications
+│
+├── frontend/
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── components/           # Reusable UI components
+│       ├── pages/                # Route-level page components
+│       ├── hooks/                # TanStack Query hooks per domain
+│       ├── api/                  # API client (axios + TanStack Query)
+│       ├── types/                # TypeScript domain types
+│       └── utils/                # Formatters, validators
+│
+└── specs/
+    └── 001-oracle-fusion-erp-clone/
+        ├── spec.md
+        ├── plan.md
+        ├── research.md
+        ├── data-model.md
+        ├── quickstart.md
+        └── contracts/
 ```
 
-### 5. Run tests
+## Service Endpoints
 
-```bash
-# All tests (workspace)
-cargo test
-
-# With nextest (faster, better output)
-cargo nextest run
-
-# Specific service tests
-cargo test -p service-gl
-
-# Contract tests only
-cargo test -p service-gl --test contract
-
-# Run with logging
-RUST_LOG=debug cargo test -p service-gl -- --nocapture
-```
-
-### 6. Start services
-
-```bash
-# Start all services via Docker Compose
-docker compose up -d
-
-# Or run a service locally for development
-cargo run -p service-gl
-# Defaults to http://localhost:8081 (gRPC) and http://localhost:8081/health (HTTP)
-
-# Run the API gateway
-cargo run -p service-gateway
-# Defaults to http://localhost:8080
-```
-
-### 7. Start the frontend
-
-```bash
-cd web
-npm install
-npm run dev
-# Opens at http://localhost:5173 (proxies API calls to gateway at :8080)
-```
-
-## Service Port Map
-
-| Service | HTTP Port | gRPC Port | Database |
-|---------|-----------|-----------|----------|
-| gateway | 8080 | — | — |
-| gl | 8081 | 9091 | `fusion_gl` |
-| ap | 8082 | 9092 | `fusion_ap` |
-| ar | 8083 | 9093 | `fusion_ar` |
-| identity | 8084 | 9094 | `fusion_identity` |
-| workflow | 8085 | 9095 | `fusion_workflow` |
-| notification | 8086 | 9096 | — |
-| procurement | 8087 | 9097 | `fusion_procurement` |
-| reporting | 8088 | 9098 | `fusion_reporting` |
-| consolidation | 8089 | 9099 | `fusion_consolidation` |
-| budget | 8090 | 9100 | `fusion_budget` |
-| tax | 8091 | 9101 | `fusion_tax` |
-| asset | 8092 | 9102 | `fusion_asset` |
-
-## Development Workflow
-
-### TDD Cycle (Constitution Principle I)
-
-```bash
-# 1. RED: Write a failing test
-# Create test file: services/gl/tests/journal_entry_test.rs
-cargo test -p service-gl --test journal_entry  # Should FAIL
-
-# 2. GREEN: Write minimal implementation
-# Edit services/gl/src/service.rs
-cargo test -p service-gl --test journal_entry  # Should PASS
-
-# 3. REFACTOR: Clean up while keeping tests green
-cargo test -p service-gl  # All tests must pass
-cargo clippy -- -D warnings
-cargo fmt --check
-```
-
-### Adding a New Endpoint
-
-1. **Define the proto contract** in `proto/<service>/v1/<service>.proto`
-2. **Regenerate proto types**: `cargo build -p crates-proto` (build.rs handles this)
-3. **Write contract test** first in `services/<service>/tests/`
-4. **Implement handler** in `services/<service>/src/handlers.rs`
-5. **Implement service logic** in `services/<service>/src/service.rs`
-6. **Implement repository** in `services/<service>/src/repository.rs`
-7. **Add migration** if new table/column needed: `sqlx migrate add <name>`
-8. **Run all checks**: `cargo test && cargo clippy -- -D warnings && cargo fmt --check`
-
-### Database Migrations
-
-```bash
-# Create a new migration
-cd services/gl
-sqlx migrate add create_journal_entry_tags
-
-# Edit the generated file in migrations/
-# Run migration
-sqlx migrate run
-
-# Rollback (if needed)
-sqlx migrate revert
-```
+| Service | gRPC Port | REST via Gateway | Description |
+|---------|-----------|------------------|-------------|
+| Gateway | — | :8080 | API gateway (REST → gRPC) |
+| Identity | :50001 | /api/v1/auth/*, /api/v1/users/*, /api/v1/tenants/* | Auth & user management |
+| GL | :50002 | /api/v1/gl/* | Chart of accounts, journal entries, periods |
+| AP | :50003 | /api/v1/ap/* | Vendors, invoices, payments |
+| AR | :50004 | /api/v1/ar/* | Customers, invoices, receipts |
+| Procurement | :50005 | /api/v1/procurement/* | Requisitions, POs, goods receipts |
+| Reporting | :50006 | /api/v1/reports/*, /api/v1/dashboard/* | Reports & dashboards |
+| Budget | :50007 | /api/v1/budgets/* | Budget management |
+| Consolidation | :50008 | /api/v1/consolidation/* | Legal entities, FX rates, consolidation |
+| Fixed Asset | :50009 | /api/v1/assets/* | Asset register & depreciation |
+| Tax | :50010 | /api/v1/tax/* | Tax codes & calculation |
+| Workflow | :50011 | /api/v1/workflows/* | Approval workflows |
+| Notification | :50012 | /api/v1/notifications/* | In-app notifications |
 
 ## Environment Variables
 
-Each service reads from environment variables (or `.env` file):
-
 ```bash
+# .env.example
+
 # Database
-DATABASE_URL=postgres://fusion:fusion@localhost:5432/fusion_gl
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=fusion
+DATABASE_PASSWORD=fusion
 
 # NATS
 NATS_URL=nats://localhost:4222
 
-# Auth
+# JWT
+JWT_PRIVATE_KEY_PATH=./keys/private.pem
 JWT_PUBLIC_KEY_PATH=./keys/public.pem
+JWT_ACCESS_TOKEN_TTL_MINUTES=15
+JWT_REFRESH_TOKEN_TTL_DAYS=7
+
+# SMTP (for password reset)
+SMTP_HOST=localhost
+SMTP_PORT=1025  # MailHog in dev
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=noreply@fusion-erp.local
 
 # Observability
-RUST_LOG=info
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+RUST_LOG=fusion=debug,tower_http=debug
 
-# Service
-SERVICE_PORT=8081
-GRPC_PORT=9091
+# Identity service (platform DB)
+PLATFORM_DATABASE_URL=postgres://fusion:fusion@localhost:5432/fusion_platform
 ```
 
-## Code Quality Gates
-
-Before every commit, ensure:
+## Database Setup
 
 ```bash
-# All tests pass
-cargo test
+# Create the platform database (identity service)
+createdb fusion_platform
+sqlx migrate run --source services/identity/migrations --database-url "$PLATFORM_DATABASE_URL"
 
-# No clippy warnings
-cargo clippy -- -D warnings
-
-# Formatted code
-cargo fmt --check
-
-# No known vulnerabilities
-cargo audit
-
-# Per-service build
-cargo build -p service-gl
+# Create tenant databases (repeat per service per tenant)
+for service in gl ap ar procurement reporting budget consolidation fixed-asset tax workflow notification; do
+  createdb "fusion_${service}_tenant_001"
+  sqlx migrate run --source "services/${service}/migrations" \
+    --database-url "postgres://fusion:fusion@localhost:5432/fusion_${service}_tenant_001"
+done
 ```
 
-## Docker Compose Services
-
-```yaml
-# Key services in docker-compose.yml
-services:
-  postgres:
-    image: postgres:16
-    ports: ["5432:5432"]
-    environment:
-      POSTGRES_USER: fusion
-      POSTGRES_PASSWORD: fusion
-
-  nats:
-    image: nats:2-alpine
-    ports: ["4222:4222", "8222:8222"]
-    command: ["--jetstream"]
-```
-
-## Useful Commands
+## Running Tests
 
 ```bash
-# Check workspace dependency tree
-cargo tree
+# All unit + integration tests
+cargo nextest run
 
-# Verify no circular dependencies
-cargo tree --duplicates
+# Per-service tests
+cargo nextest run -p fusion-gl
 
-# Run a specific integration test
-cargo nextest run -p service-gl -E 'test(journal_entry_posting)'
+# Contract tests (validate proto conformance)
+cargo nextest run -p fusion-proto
 
-# View NATS streams
-nats stream list
+# E2E tests (requires running services)
+cd frontend && npx playwright test
+```
 
-# Generate keys for JWT (initial setup)
-openssl genrsa -out keys/private.pem 2048
-openssl rsa -in keys/private.pem -pubout -out keys/public.pem
+## Tenant Provisioning
+
+```bash
+# Create a new tenant via CLI
+cargo run --bin fusion-cli tenants create \
+  --name "Acme Corp" \
+  --slug "acme" \
+  --plan "standard"
+
+# This creates:
+# 1. Tenant record in fusion_platform
+# 2. Per-service databases: fusion_{service}_acme
+# 3. Default admin user (email sent for password setup)
+```
+
+## Frontend Development
+
+```bash
+cd frontend
+npm install
+npm run dev  # Starts Vite dev server on :3000, proxies API to :8080
 ```

@@ -1,191 +1,168 @@
-// Workflow & Approval Management Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.workflow.v1;
+option go_package = "github.com/fusion/workflow/v1";
 
-import "common.proto";
+// Workflow Service — approval workflows, approval instances, escalation
+// Consumed by: API gateway, all transactional services (GL, AP, AR, Procurement, Budget)
 
-// === Approval Workflow Configuration ===
+service WorkflowService {
+  // Workflow configuration
+  rpc CreateApprovalWorkflow(CreateApprovalWorkflowRequest) returns (ApprovalWorkflow);
+  rpc GetApprovalWorkflow(GetApprovalWorkflowRequest) returns (ApprovalWorkflow);
+  rpc ListApprovalWorkflows(ListApprovalWorkflowsRequest) returns (ListApprovalWorkflowsResponse);
+  rpc UpdateApprovalWorkflow(UpdateApprovalWorkflowRequest) returns (ApprovalWorkflow);
+  rpc DeactivateApprovalWorkflow(DeactivateApprovalWorkflowRequest) returns (ApprovalWorkflow);
 
-service ApprovalWorkflowService {
-  rpc CreateWorkflow(CreateWorkflowRequest) returns (ApprovalWorkflow);
-  rpc GetWorkflow(GetWorkflowRequest) returns (ApprovalWorkflow);
-  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
-  rpc UpdateWorkflow(UpdateWorkflowRequest) returns (ApprovalWorkflow);
-  rpc DeactivateWorkflow(DeactivateWorkflowRequest) returns (ApprovalWorkflow);
+  // Workflow execution
+  rpc SubmitForApproval(SubmitForApprovalRequest) returns (ApprovalInstance);
+  rpc GetApprovalInstance(GetApprovalInstanceRequest) returns (ApprovalInstance);
+  rpc ListApprovalInstances(ListApprovalInstancesRequest) returns (ListApprovalInstancesResponse);
+  rpc ApproveStep(ApproveStepRequest) returns (ApprovalInstance);
+  rpc RejectStep(RejectStepRequest) returns (ApprovalInstance);
+
+  // Delegation
+  rpc SetDelegation(SetDelegationRequest) returns (SetDelegationResponse);
+
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
+}
+
+// --- Messages ---
+
+message CreateApprovalWorkflowRequest {
+  string name = 1;
+  string document_type = 2;
+  string trigger_conditions_json = 3;
+  repeated WorkflowStep steps = 4;
+  int32 escalation_timeout_minutes = 5;
+}
+
+message GetApprovalWorkflowRequest { string id = 1; }
+
+message ListApprovalWorkflowsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string document_type = 3;
+  optional bool is_active = 4;
+}
+
+message ListApprovalWorkflowsResponse {
+  repeated ApprovalWorkflow workflows = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateApprovalWorkflowRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string trigger_conditions_json = 3;
+  repeated WorkflowStep steps = 4;
+  optional int32 escalation_timeout_minutes = 5;
+  int32 version = 6;
+}
+
+message DeactivateApprovalWorkflowRequest { string id = 1; }
+
+message SubmitForApprovalRequest {
+  string document_type = 1;
+  string document_id = 2;
+  Decimal document_amount = 3;
+  optional string department_id = 4;
+}
+
+message GetApprovalInstanceRequest { string id = 1; }
+
+message ListApprovalInstancesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional string document_type = 4;
+  optional string assigned_to_user_id = 5;
+}
+
+message ListApprovalInstancesResponse {
+  repeated ApprovalInstance instances = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message ApproveStepRequest {
+  string instance_id = 1;
+  optional string comments = 2;
+}
+
+message RejectStepRequest {
+  string instance_id = 1;
+  string reason = 2;
+}
+
+message SetDelegationRequest {
+  string workflow_step_id = 1;
+  string delegate_to_user_id = 2;
+}
+
+message SetDelegationResponse {}
+
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
+
+// --- Domain models ---
+
+message WorkflowStep {
+  int32 step_number = 1;
+  string approver_type = 2;  // specific_user, role, department_manager
+  string approver_ref = 3;   // user ID, role ID, or department ID
+  optional string delegate_to_user_id = 4;
 }
 
 message ApprovalWorkflow {
   string id = 1;
   string name = 2;
-  string module = 3;          // "gl", "ap", "ar", "procurement"
-  string trigger_type = 4;    // "journal_entry", "invoice", "purchase_order"
-  string condition = 5;       // JSON: { "amount_gt": 10000, "department": "IT" }
-  bool is_active = 6;
-  repeated ApprovalStep steps = 7;
-  fusion.common.v1.AuditInfo audit_info = 8;
+  string document_type = 3;
+  string trigger_conditions_json = 4;
+  repeated WorkflowStepInfo steps = 5;
+  int32 escalation_timeout_minutes = 6;
+  bool is_active = 7;
+  int32 version = 8;
+  int64 created_at_unix = 9;
+  int64 updated_at_unix = 10;
 }
 
-message ApprovalStep {
+message WorkflowStepInfo {
   string id = 1;
-  int32 step_order = 2;
-  ApproverType approver_type = 3;
-  string approver_id = 4;        // User or Role ID
-  int32 timeout_minutes = 5;
-  string escalation_approver_id = 6;
-}
-
-enum ApproverType {
-  APPROVER_TYPE_UNSPECIFIED = 0;
-  APPROVER_TYPE_USER = 1;
-  APPROVER_TYPE_ROLE = 2;
-  APPROVER_TYPE_MANAGER_OF_SUBMITTER = 3;
-}
-
-message CreateWorkflowRequest {
-  string name = 1;
-  string module = 2;
-  string trigger_type = 3;
-  string condition = 4;
-  repeated CreateApprovalStepRequest steps = 5;
-}
-
-message CreateApprovalStepRequest {
-  int32 step_order = 1;
-  ApproverType approver_type = 2;
-  string approver_id = 3;
-  int32 timeout_minutes = 4;
-  string escalation_approver_id = 5;
-}
-
-message GetWorkflowRequest {
-  string id = 1;
-}
-
-message ListWorkflowsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string module = 2;
-  string trigger_type = 3;
-  bool active_only = 4;
-}
-
-message ListWorkflowsResponse {
-  repeated ApprovalWorkflow workflows = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message UpdateWorkflowRequest {
-  string id = 1;
-  string name = 2;
-  string condition = 3;
-  repeated CreateApprovalStepRequest steps = 4;
-}
-
-message DeactivateWorkflowRequest {
-  string id = 1;
-}
-
-// === Approval Instance Management ===
-
-service ApprovalInstanceService {
-  rpc SubmitForApproval(SubmitForApprovalRequest) returns (ApprovalInstance);
-  rpc GetApprovalInstance(GetApprovalInstanceRequest) returns (ApprovalInstance);
-  rpc ListPendingApprovals(ListPendingApprovalsRequest) returns (ListPendingApprovalsResponse);
-  rpc Approve(ApproveRequest) returns (ApprovalInstance);
-  rpc Reject(RejectRequest) returns (ApprovalInstance);
-  rpc Delegate(DelegateRequest) returns (ApprovalInstance);
-  rpc GetApprovalHistory(GetApprovalHistoryRequest) returns (ApprovalHistory);
+  int32 step_number = 2;
+  string approver_type = 3;
+  string approver_ref = 4;
+  optional string delegate_to_user_id = 5;
 }
 
 message ApprovalInstance {
   string id = 1;
   string workflow_id = 2;
-  string entity_type = 3;
-  string entity_id = 4;
-  int32 current_step = 5;
-  ApprovalInstanceStatus status = 6;
-  string submitted_by = 7;
-  string submitted_at = 8;
-  string completed_at = 9;
-  repeated ApprovalAction actions = 10;
+  string document_type = 3;
+  string document_id = 4;
+  string submitted_by = 5;
+  int32 current_step = 6;
+  string status = 7;
+  repeated ApprovalStepStatus step_statuses = 8;
+  int64 created_at_unix = 9;
+  int64 updated_at_unix = 10;
 }
 
-enum ApprovalInstanceStatus {
-  APPROVAL_INSTANCE_STATUS_UNSPECIFIED = 0;
-  APPROVAL_INSTANCE_STATUS_PENDING = 1;
-  APPROVAL_INSTANCE_STATUS_APPROVED = 2;
-  APPROVAL_INSTANCE_STATUS_REJECTED = 3;
-  APPROVAL_INSTANCE_STATUS_ESCALATED = 4;
-  APPROVAL_INSTANCE_STATUS_CANCELLED = 5;
-}
-
-message ApprovalAction {
+message ApprovalStepStatus {
   string id = 1;
   int32 step_number = 2;
-  string approver_id = 3;
-  ApprovalActionType action = 4;
-  string delegated_to = 5;
-  string comment = 6;
-  string acted_at = 7;
+  string assigned_to_user_id = 3;
+  optional string action = 4;
+  optional int64 acted_at_unix = 5;
+  optional string comments = 6;
+  bool is_escalated = 7;
+  optional string escalated_to_user_id = 8;
 }
 
-enum ApprovalActionType {
-  APPROVAL_ACTION_TYPE_UNSPECIFIED = 0;
-  APPROVAL_ACTION_TYPE_APPROVE = 1;
-  APPROVAL_ACTION_TYPE_REJECT = 2;
-  APPROVAL_ACTION_TYPE_DELEGATE = 3;
-  APPROVAL_ACTION_TYPE_ESCALATE = 4;
-}
-
-message SubmitForApprovalRequest {
-  string entity_type = 1;
-  string entity_id = 2;
-  string submitted_by = 3;
-}
-
-message GetApprovalInstanceRequest {
-  string id = 1;
-}
-
-message ListPendingApprovalsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string approver_id = 2;
-  string module = 3;
-}
-
-message ListPendingApprovalsResponse {
-  repeated ApprovalInstance instances = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message ApproveRequest {
-  string instance_id = 1;
-  string approver_id = 2;
-  string comment = 3;
-}
-
-message RejectRequest {
-  string instance_id = 1;
-  string approver_id = 2;
-  string reason = 3;
-}
-
-message DelegateRequest {
-  string instance_id = 1;
-  string from_approver_id = 2;
-  string to_approver_id = 3;
-  string comment = 4;
-}
-
-message GetApprovalHistoryRequest {
-  string entity_type = 1;
-  string entity_id = 2;
-}
-
-message ApprovalHistory {
-  string entity_type = 1;
-  string entity_id = 2;
-  repeated ApprovalAction actions = 3;
+message Decimal {
+  int64 units = 1;
+  int32 nanos = 2;
 }

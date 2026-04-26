@@ -1,142 +1,163 @@
-// Budget Management Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.budget.v1;
+option go_package = "github.com/fusion/budget/v1";
 
-import "common.proto";
+// Budget Service — budget creation, tracking, variance analysis
+// Consumed by: API gateway, reporting service
 
 service BudgetService {
   rpc CreateBudget(CreateBudgetRequest) returns (Budget);
   rpc GetBudget(GetBudgetRequest) returns (Budget);
   rpc ListBudgets(ListBudgetsRequest) returns (ListBudgetsResponse);
+  rpc UpdateBudget(UpdateBudgetRequest) returns (Budget);
+  rpc SubmitBudgetForApproval(SubmitBudgetForApprovalRequest) returns (Budget);
   rpc ApproveBudget(ApproveBudgetRequest) returns (Budget);
-  rpc UploadBudget(UploadBudgetRequest) returns (Budget);
+
+  rpc GetBudgetVsActual(GetBudgetVsActualRequest) returns (BudgetVsActualResponse);
+  rpc GetVarianceAlerts(GetVarianceAlertsRequest) returns (GetVarianceAlertsResponse);
+  rpc AcknowledgeVarianceAlert(AcknowledgeVarianceAlertRequest) returns (VarianceAlert);
+
+  // CSV/Excel import
+  rpc ImportBudgetLines(ImportBudgetLinesRequest) returns (ImportBudgetLinesResponse);
+
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
 }
+
+// --- Messages ---
+
+message CreateBudgetRequest {
+  string name = 1;
+  int32 fiscal_year = 2;
+  optional string description = 3;
+  repeated BudgetLineInput lines = 4;
+}
+
+message BudgetLineInput {
+  string account_id = 1;
+  optional string department_id = 2;
+  string period_amounts_json = 3;  // {"01": "10000.00", ...}
+  optional Decimal variance_threshold_pct = 4;
+}
+
+message GetBudgetRequest { string id = 1; }
+
+message ListBudgetsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional int32 fiscal_year = 4;
+}
+
+message ListBudgetsResponse {
+  repeated Budget budgets = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateBudgetRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  repeated BudgetLineInput lines = 4;
+  int32 version = 5;
+}
+
+message SubmitBudgetForApprovalRequest { string id = 1; int32 version = 2; }
+message ApproveBudgetRequest { string id = 1; optional string comments = 2; }
+
+message GetBudgetVsActualRequest {
+  string budget_id = 1;
+  optional string period = 2;  // "YYYY-MM" or omit for full year
+}
+
+message BudgetVsActualResponse {
+  repeated BudgetVsActualLine lines = 1;
+  Decimal total_budget = 2;
+  Decimal total_actual = 3;
+  Decimal total_variance = 4;
+}
+
+message BudgetVsActualLine {
+  string account_id = 1;
+  string account_code = 2;
+  string account_name = 3;
+  Decimal budgeted = 4;
+  Decimal actual = 5;
+  Decimal variance = 6;
+  Decimal variance_pct = 7;
+}
+
+message GetVarianceAlertsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional bool acknowledged = 3;
+}
+
+message GetVarianceAlertsResponse {
+  repeated VarianceAlert alerts = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message AcknowledgeVarianceAlertRequest { string id = 1; }
+
+message ImportBudgetLinesRequest {
+  string budget_id = 1;
+  bytes file_data = 2;
+  string file_format = 3;  // "csv" or "xlsx"
+}
+
+message ImportBudgetLinesResponse {
+  int32 lines_imported = 1;
+  int32 lines_skipped = 2;
+  repeated string errors = 3;
+}
+
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
+
+// --- Domain models ---
 
 message Budget {
   string id = 1;
   string name = 2;
   int32 fiscal_year = 3;
-  string department = 4;
-  BudgetStatus status = 5;
-  fusion.common.v1.Money total_amount = 6;
-  string approved_by = 7;
-  repeated BudgetLine lines = 8;
-  fusion.common.v1.AuditInfo audit_info = 9;
+  optional string description = 4;
+  string status = 5;
+  Decimal total_budget = 6;
+  repeated BudgetLine lines = 7;
+  int32 version = 8;
+  int64 created_at_unix = 9;
+  int64 updated_at_unix = 10;
 }
 
 message BudgetLine {
   string id = 1;
-  string gl_account_id = 2;
-  int32 period_number = 3;
-  fusion.common.v1.Money budgeted_amount = 4;
-  fusion.common.v1.Money actual_amount = 5;
+  string account_id = 2;
+  optional string department_id = 3;
+  string period_amounts_json = 4;
+  Decimal total_amount = 5;
+  Decimal variance_threshold_pct = 6;
 }
 
-enum BudgetStatus {
-  BUDGET_STATUS_UNSPECIFIED = 0;
-  BUDGET_STATUS_DRAFT = 1;
-  BUDGET_STATUS_APPROVED = 2;
-  BUDGET_STATUS_ACTIVE = 3;
-  BUDGET_STATUS_CLOSED = 4;
-}
-
-message CreateBudgetRequest {
-  string name = 1;
-  int32 fiscal_year = 2;
-  string department = 3;
-  repeated CreateBudgetLineRequest lines = 4;
-}
-
-message CreateBudgetLineRequest {
-  string gl_account_id = 1;
-  int32 period_number = 2;
-  fusion.common.v1.Money budgeted_amount = 3;
-}
-
-message GetBudgetRequest {
+message VarianceAlert {
   string id = 1;
+  string budget_line_id = 2;
+  string period = 3;
+  Decimal budgeted_amount = 4;
+  Decimal actual_amount = 5;
+  Decimal variance_amount = 6;
+  Decimal variance_pct = 7;
+  string alert_type = 8;
+  optional string acknowledged_by = 9;
+  int64 acknowledged_at_unix = 10;
+  int64 created_at_unix = 11;
 }
 
-message ListBudgetsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  int32 fiscal_year = 2;
-  BudgetStatus status_filter = 3;
-  string department = 4;
-}
-
-message ListBudgetsResponse {
-  repeated Budget budgets = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message ApproveBudgetRequest {
-  string id = 1;
-}
-
-message UploadBudgetRequest {
-  string name = 1;
-  int32 fiscal_year = 2;
-  string department = 3;
-  bytes file_content = 4; // CSV or Excel file content
-  string file_name = 5;
-}
-
-// === Budget vs Actual ===
-
-service BudgetAnalysisService {
-  rpc GetBudgetVsActual(GetBudgetVsActualRequest) returns (BudgetVsActualReport);
-  rpc GetVarianceReport(GetVarianceReportRequest) returns (VarianceReport);
-}
-
-message GetBudgetVsActualRequest {
-  string budget_id = 1;
-  int32 period_number = 2; // Optional: filter to specific period
-}
-
-message BudgetVsActualReport {
-  string budget_name = 1;
-  int32 fiscal_year = 2;
-  repeated BudgetVsActualLine lines = 3;
-  BudgetVsActualTotals totals = 4;
-}
-
-message BudgetVsActualLine {
-  string gl_account_id = 1;
-  string account_name = 2;
-  int32 period_number = 3;
-  fusion.common.v1.Money budgeted = 4;
-  fusion.common.v1.Money actual = 5;
-  fusion.common.v1.Money variance = 6;
-  string variance_percentage = 7;
-}
-
-message BudgetVsActualTotals {
-  fusion.common.v1.Money total_budgeted = 1;
-  fusion.common.v1.Money total_actual = 2;
-  fusion.common.v1.Money total_variance = 3;
-}
-
-message GetVarianceReportRequest {
-  int32 fiscal_year = 1;
-  int32 period_number = 2;
-  string variance_threshold = 3; // Optional: only show variances above this percentage
-}
-
-message VarianceReport {
-  repeated VarianceLine lines = 1;
-}
-
-message VarianceLine {
-  string budget_id = 1;
-  string budget_name = 2;
-  string gl_account_id = 3;
-  int32 period_number = 4;
-  fusion.common.v1.Money budgeted = 5;
-  fusion.common.v1.Money actual = 6;
-  fusion.common.v1.Money variance = 7;
-  string variance_percentage = 8;
-  bool exceeds_threshold = 9;
+message Decimal {
+  int64 units = 1;
+  int32 nanos = 2;
 }

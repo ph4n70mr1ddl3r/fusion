@@ -1,192 +1,170 @@
-// Consolidation & Multi-Currency Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.consolidation.v1;
+option go_package = "github.com/fusion/consolidation/v1";
 
-import "common.proto";
+// Consolidation Service — legal entities, exchange rates, consolidation runs
+// Consumed by: API gateway, GL service (period close), reporting service
 
-// === Legal Entity Management ===
-
-service LegalEntityService {
+service ConsolidationService {
+  // Legal entities
   rpc CreateLegalEntity(CreateLegalEntityRequest) returns (LegalEntity);
   rpc GetLegalEntity(GetLegalEntityRequest) returns (LegalEntity);
   rpc ListLegalEntities(ListLegalEntitiesRequest) returns (ListLegalEntitiesResponse);
   rpc UpdateLegalEntity(UpdateLegalEntityRequest) returns (LegalEntity);
+
+  // Exchange rates
+  rpc CreateExchangeRate(CreateExchangeRateRequest) returns (ExchangeRate);
+  rpc GetExchangeRate(GetExchangeRateRequest) returns (ExchangeRate);
+  rpc ListExchangeRates(ListExchangeRatesRequest) returns (ListExchangeRatesResponse);
+  rpc DeleteExchangeRate(DeleteExchangeRateRequest) returns (DeleteExchangeRateResponse);
+
+  // Currency revaluation
+  rpc RunCurrencyRevaluation(RunCurrencyRevaluationRequest) returns (RunCurrencyRevaluationResponse);
+
+  // Consolidation
+  rpc RunConsolidation(RunConsolidationRequest) returns (ConsolidationRun);
+  rpc GetConsolidationRun(GetConsolidationRunRequest) returns (ConsolidationRun);
+  rpc ListConsolidationRuns(ListConsolidationRunsRequest) returns (ListConsolidationRunsResponse);
+
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
 }
+
+// --- Messages ---
+
+message CreateLegalEntityRequest {
+  string entity_code = 1;
+  string name = 2;
+  string base_currency = 3;
+  optional string parent_entity_id = 4;
+  int32 fiscal_year_start_month = 5;
+  bool is_consolidating = 6;
+}
+
+message GetLegalEntityRequest { string id = 1; }
+
+message ListLegalEntitiesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+}
+
+message ListLegalEntitiesResponse {
+  repeated LegalEntity entities = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateLegalEntityRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string base_currency = 3;
+  int32 version = 4;
+}
+
+message CreateExchangeRateRequest {
+  string from_currency = 1;
+  string to_currency = 2;
+  Decimal rate = 3;
+  string effective_date = 4;
+}
+
+message GetExchangeRateRequest { string id = 1; }
+
+message ListExchangeRatesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string from_currency = 3;
+  optional string to_currency = 4;
+  optional string effective_date = 5;
+}
+
+message ListExchangeRatesResponse {
+  repeated ExchangeRate rates = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DeleteExchangeRateRequest { string id = 1; }
+message DeleteExchangeRateResponse {}
+
+message RunCurrencyRevaluationRequest {
+  string legal_entity_id = 1;
+  string period_id = 2;
+}
+
+message RunCurrencyRevaluationResponse {
+  string journal_entry_id = 1;
+  Decimal total_unrealized_gain = 2;
+  Decimal total_unrealized_loss = 3;
+  int32 accounts_revalued = 4;
+}
+
+message RunConsolidationRequest {
+  string parent_entity_id = 1;
+  string reporting_period_id = 2;
+  repeated string subsidiary_entity_ids = 3;
+}
+
+message GetConsolidationRunRequest { string id = 1; }
+
+message ListConsolidationRunsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string parent_entity_id = 3;
+  optional string status = 4;
+}
+
+message ListConsolidationRunsResponse {
+  repeated ConsolidationRun runs = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
+
+// --- Domain models ---
 
 message LegalEntity {
   string id = 1;
   string entity_code = 2;
   string name = 3;
   string base_currency = 4;
-  string parent_entity_id = 5;
+  optional string parent_entity_id = 5;
   int32 fiscal_year_start_month = 6;
-  bool is_active = 7;
-  fusion.common.v1.AuditInfo audit_info = 8;
-}
-
-message CreateLegalEntityRequest {
-  string entity_code = 1;
-  string name = 2;
-  string base_currency = 3;
-  string parent_entity_id = 4;
-  int32 fiscal_year_start_month = 5;
-}
-
-message GetLegalEntityRequest {
-  string id = 1;
-}
-
-message ListLegalEntitiesRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  bool active_only = 2;
-}
-
-message ListLegalEntitiesResponse {
-  repeated LegalEntity entities = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message UpdateLegalEntityRequest {
-  string id = 1;
-  string name = 2;
-  string base_currency = 3;
-  int32 fiscal_year_start_month = 4;
-}
-
-// === Exchange Rates ===
-
-service ExchangeRateService {
-  rpc CreateExchangeRate(CreateExchangeRateRequest) returns (ExchangeRate);
-  rpc GetExchangeRate(GetExchangeRateRequest) returns (ExchangeRate);
-  rpc ListExchangeRates(ListExchangeRatesRequest) returns (ListExchangeRatesResponse);
-  rpc GetCurrentRate(GetCurrentRateRequest) returns (ExchangeRate);
+  bool is_consolidating = 7;
+  string status = 8;
+  int64 created_at_unix = 9;
+  int64 updated_at_unix = 10;
 }
 
 message ExchangeRate {
   string id = 1;
   string from_currency = 2;
   string to_currency = 3;
-  string rate = 4; // Decimal as string
+  Decimal rate = 4;
   string effective_date = 5;
-  string source = 6;
+  int64 created_at_unix = 6;
 }
 
-message CreateExchangeRateRequest {
-  string from_currency = 1;
-  string to_currency = 2;
-  string rate = 3;
-  string effective_date = 4;
-  string source = 5;
-}
-
-message GetExchangeRateRequest {
+message ConsolidationRun {
   string id = 1;
+  string parent_entity_id = 2;
+  string reporting_period_id = 3;
+  string status = 4;
+  optional string exchange_rates_used_json = 5;
+  optional string eliminations_applied_json = 6;
+  optional Decimal total_eliminations = 7;
+  optional int64 started_at_unix = 8;
+  optional int64 completed_at_unix = 9;
+  optional string error_message = 10;
+  int64 created_at_unix = 11;
 }
 
-message ListExchangeRatesRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string from_currency = 2;
-  string to_currency = 3;
-}
-
-message ListExchangeRatesResponse {
-  repeated ExchangeRate rates = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message GetCurrentRateRequest {
-  string from_currency = 1;
-  string to_currency = 2;
-  string as_of_date = 3;
-}
-
-// === Currency Revaluation ===
-
-service RevaluationService {
-  rpc RunRevaluation(RunRevaluationRequest) returns (RevaluationResult);
-}
-
-message RunRevaluationRequest {
-  string legal_entity_id = 1;
-  int32 period_year = 2;
-  int32 period_number = 3;
-  string revaluation_date = 4;
-}
-
-message RevaluationResult {
-  string id = 1;
-  string legal_entity_id = 2;
-  int32 period_year = 3;
-  int32 period_number = 4;
-  repeated RevaluationEntry entries = 5;
-  fusion.common.v1.Money total_unrealized_gain = 6;
-  fusion.common.v1.Money total_unrealized_loss = 7;
-}
-
-message RevaluationEntry {
-  string account_id = 1;
-  string account_code = 2;
-  string currency = 3;
-  fusion.common.v1.Money original_amount = 4;
-  fusion.common.v1.Money revalued_amount = 5;
-  fusion.common.v1.Money unrealized_gain_loss = 6;
-  string gl_journal_entry_id = 7;
-}
-
-// === Consolidation ===
-
-service ConsolidationService {
-  rpc RunConsolidation(RunConsolidationRequest) returns (ConsolidationResult);
-  rpc GetConsolidationStatus(GetConsolidationStatusRequest) returns (ConsolidationResult);
-}
-
-message RunConsolidationRequest {
-  int32 period_year = 1;
-  int32 period_number = 2;
-  string reporting_currency = 3;
-  repeated string entity_ids = 4; // Optional: specific entities; empty = all
-}
-
-message ConsolidationResult {
-  string id = 1;
-  int32 period_year = 2;
-  int32 period_number = 3;
-  string reporting_currency = 4;
-  ConsolidationStatus status = 5;
-  repeated ConsolidationEntry entries = 6;
-  string started_at = 7;
-  string completed_at = 8;
-  string initiated_by = 9;
-}
-
-enum ConsolidationStatus {
-  CONSOLIDATION_STATUS_UNSPECIFIED = 0;
-  CONSOLIDATION_STATUS_RUNNING = 1;
-  CONSOLIDATION_STATUS_COMPLETED = 2;
-  CONSOLIDATION_STATUS_FAILED = 3;
-}
-
-message ConsolidationEntry {
-  string entity_id = 1;
-  string entity_name = 2;
-  string entity_currency = 3;
-  fusion.common.v1.Money entity_total_assets = 4;
-  fusion.common.v1.Money converted_total_assets = 5;
-  string exchange_rate_used = 6;
-  repeated EliminationEntry eliminations = 7;
-}
-
-message EliminationEntry {
-  string description = 1;
-  fusion.common.v1.Money debit = 2;
-  fusion.common.v1.Money credit = 3;
-  string from_entity_id = 4;
-  string to_entity_id = 5;
-}
-
-message GetConsolidationStatusRequest {
-  string id = 1;
+message Decimal {
+  int64 units = 1;
+  int32 nanos = 2;
 }

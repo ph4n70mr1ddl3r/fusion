@@ -1,86 +1,70 @@
-// Procurement Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.procurement.v1;
+option go_package = "github.com/fusion/procurement/v1";
 
-import "common.proto";
+// Procurement Service — requisitions, purchase orders, goods receipts
+// Consumed by: API gateway, AP service (three-way matching)
 
-// === Purchase Requisitions ===
-
-service RequisitionService {
-  rpc CreateRequisition(CreateRequisitionRequest) returns (PurchaseRequisition);
-  rpc GetRequisition(GetRequisitionRequest) returns (PurchaseRequisition);
+service ProcurementService {
+  // Requisitions
+  rpc CreateRequisition(CreateRequisitionRequest) returns (Requisition);
+  rpc GetRequisition(GetRequisitionRequest) returns (Requisition);
   rpc ListRequisitions(ListRequisitionsRequest) returns (ListRequisitionsResponse);
-  rpc ApproveRequisition(ApproveRequisitionRequest) returns (PurchaseRequisition);
-  rpc RejectRequisition(RejectRequisitionRequest) returns (PurchaseRequisition);
+  rpc UpdateRequisition(UpdateRequisitionRequest) returns (Requisition);
+  rpc SubmitRequisition(SubmitRequisitionRequest) returns (Requisition);
+  rpc ApproveRequisition(ApproveRequisitionRequest) returns (Requisition);
+  rpc RejectRequisition(RejectRequisitionRequest) returns (Requisition);
+
+  // Purchase Orders
+  rpc CreatePurchaseOrder(CreatePurchaseOrderRequest) returns (PurchaseOrder);
+  rpc GetPurchaseOrder(GetPurchaseOrderRequest) returns (PurchaseOrder);
+  rpc ListPurchaseOrders(ListPurchaseOrdersRequest) returns (ListPurchaseOrdersResponse);
+  rpc UpdatePurchaseOrder(UpdatePurchaseOrderRequest) returns (PurchaseOrder);
+
+  // Goods Receipts
+  rpc CreateGoodsReceipt(CreateGoodsReceiptRequest) returns (GoodsReceipt);
+  rpc GetGoodsReceipt(GetGoodsReceiptRequest) returns (GoodsReceipt);
+  rpc ListGoodsReceipts(ListGoodsReceiptsRequest) returns (ListGoodsReceiptsResponse);
+
+  // Health
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
 }
 
-message PurchaseRequisition {
-  string id = 1;
-  string requisition_number = 2;
-  string requester_id = 3;
-  string department = 4;
-  string description = 5;
-  RequisitionStatus status = 6;
-  fusion.common.v1.Money total_estimated = 7;
-  string approved_by = 8;
-  repeated RequisitionLine lines = 9;
-  fusion.common.v1.AuditInfo audit_info = 10;
-}
-
-message RequisitionLine {
-  string id = 1;
-  int32 line_number = 2;
-  string description = 3;
-  string quantity = 4;
-  string estimated_unit_price = 5;
-  string category = 6;
-  string preferred_vendor_id = 7;
-}
-
-enum RequisitionStatus {
-  REQUISITION_STATUS_UNSPECIFIED = 0;
-  REQUISITION_STATUS_DRAFT = 1;
-  REQUISITION_STATUS_PENDING_APPROVAL = 2;
-  REQUISITION_STATUS_APPROVED = 3;
-  REQUISITION_STATUS_REJECTED = 4;
-  REQUISITION_STATUS_CONVERTED = 5;
-  REQUISITION_STATUS_CANCELLED = 6;
-}
+// --- Messages ---
 
 message CreateRequisitionRequest {
-  string department = 1;
-  string description = 2;
-  repeated CreateRequisitionLineRequest lines = 3;
+  optional string description = 1;
+  repeated RequisitionLine lines = 2;
 }
 
-message CreateRequisitionLineRequest {
-  string description = 1;
-  string quantity = 2;
-  string estimated_unit_price = 3;
-  string category = 4;
-  string preferred_vendor_id = 5;
-}
-
-message GetRequisitionRequest {
-  string id = 1;
-}
+message GetRequisitionRequest { string id = 1; }
 
 message ListRequisitionsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  RequisitionStatus status_filter = 2;
-  string requester_id = 3;
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional string requester_id = 4;
 }
 
 message ListRequisitionsResponse {
-  repeated PurchaseRequisition requisitions = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
+  repeated Requisition requisitions = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
 }
+
+message UpdateRequisitionRequest {
+  string id = 1;
+  optional string description = 2;
+  repeated RequisitionLine lines = 3;
+  int32 version = 4;
+}
+
+message SubmitRequisitionRequest { string id = 1; int32 version = 2; }
 
 message ApproveRequisitionRequest {
   string id = 1;
+  optional string comments = 2;
 }
 
 message RejectRequisitionRequest {
@@ -88,91 +72,121 @@ message RejectRequisitionRequest {
   string reason = 2;
 }
 
-// === Purchase Orders ===
+message CreatePurchaseOrderRequest {
+  optional string requisition_id = 1;
+  string vendor_id = 2;
+  string order_date = 3;
+  optional string delivery_date = 4;
+  optional string description = 5;
+  string currency = 6;
+  repeated PurchaseOrderLine lines = 7;
+}
 
-service PurchaseOrderService {
-  rpc CreatePurchaseOrder(CreatePurchaseOrderRequest) returns (PurchaseOrder);
-  rpc GetPurchaseOrder(GetPurchaseOrderRequest) returns (PurchaseOrder);
-  rpc ListPurchaseOrders(ListPurchaseOrdersRequest) returns (ListPurchaseOrdersResponse);
-  rpc ClosePurchaseOrder(ClosePurchaseOrderRequest) returns (PurchaseOrder);
+message GetPurchaseOrderRequest { string id = 1; }
+
+message ListPurchaseOrdersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional string vendor_id = 4;
+}
+
+message ListPurchaseOrdersResponse {
+  repeated PurchaseOrder orders = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdatePurchaseOrderRequest {
+  string id = 1;
+  optional string delivery_date = 2;
+  repeated PurchaseOrderLine lines = 3;
+  int32 version = 4;
+}
+
+message CreateGoodsReceiptRequest {
+  string po_id = 1;
+  string received_date = 2;
+  repeated GoodsReceiptLineInput lines = 3;
+}
+
+message GoodsReceiptLineInput {
+  string po_line_id = 1;
+  Decimal quantity_received = 2;
+  optional string notes = 3;
+}
+
+message GetGoodsReceiptRequest { string id = 1; }
+
+message ListGoodsReceiptsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string po_id = 3;
+}
+
+message ListGoodsReceiptsResponse {
+  repeated GoodsReceipt receipts = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
+
+// --- Domain models ---
+
+message Requisition {
+  string id = 1;
+  string requisition_number = 2;
+  string requester_id = 3;
+  optional string description = 4;
+  string status = 5;
+  Decimal total_estimated_cost = 6;
+  repeated RequisitionLine lines = 7;
+  int32 version = 8;
+  int64 created_at_unix = 9;
+  int64 updated_at_unix = 10;
+}
+
+message RequisitionLine {
+  string id = 1;
+  int32 line_number = 2;
+  string item_description = 3;
+  Decimal quantity = 4;
+  string unit_of_measure = 5;
+  Decimal estimated_unit_price = 6;
+  optional string category = 7;
 }
 
 message PurchaseOrder {
   string id = 1;
   string po_number = 2;
-  string vendor_id = 3;
-  string requisition_id = 4;
+  optional string requisition_id = 3;
+  string vendor_id = 4;
   string order_date = 5;
-  string expected_delivery_date = 6;
-  PurchaseOrderStatus status = 7;
-  fusion.common.v1.Money subtotal = 8;
-  fusion.common.v1.Money tax_amount = 9;
-  fusion.common.v1.Money total_amount = 10;
-  string currency_code = 11;
-  repeated PurchaseOrderLine lines = 12;
-  fusion.common.v1.AuditInfo audit_info = 13;
+  optional string delivery_date = 6;
+  optional string description = 7;
+  string status = 8;
+  Decimal total_amount = 9;
+  string currency = 10;
+  repeated PurchaseOrderLine lines = 11;
+  int32 version = 12;
+  int64 created_at_unix = 13;
+  int64 updated_at_unix = 14;
 }
 
 message PurchaseOrderLine {
   string id = 1;
   int32 line_number = 2;
-  string description = 3;
-  string quantity_ordered = 4;
-  string quantity_received = 5;
-  string unit_price = 6;
-  string line_total = 7;
-}
-
-enum PurchaseOrderStatus {
-  PURCHASE_ORDER_STATUS_UNSPECIFIED = 0;
-  PURCHASE_ORDER_STATUS_DRAFT = 1;
-  PURCHASE_ORDER_STATUS_ISSUED = 2;
-  PURCHASE_ORDER_STATUS_PARTIALLY_RECEIVED = 3;
-  PURCHASE_ORDER_STATUS_RECEIVED = 4;
-  PURCHASE_ORDER_STATUS_CLOSED = 5;
-  PURCHASE_ORDER_STATUS_CANCELLED = 6;
-}
-
-message CreatePurchaseOrderRequest {
-  string vendor_id = 1;
-  string requisition_id = 2;
-  string order_date = 3;
-  string expected_delivery_date = 4;
-  string currency_code = 5;
-  repeated CreatePurchaseOrderLineRequest lines = 6;
-}
-
-message CreatePurchaseOrderLineRequest {
-  string description = 1;
-  string quantity = 2;
-  string unit_price = 3;
-}
-
-message GetPurchaseOrderRequest {
-  string id = 1;
-}
-
-message ListPurchaseOrdersRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  PurchaseOrderStatus status_filter = 2;
-  string vendor_id = 3;
-}
-
-message ListPurchaseOrdersResponse {
-  repeated PurchaseOrder purchase_orders = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message ClosePurchaseOrderRequest {
-  string id = 1;
-}
-
-// === Goods Receipt ===
-
-service GoodsReceiptService {
-  rpc CreateGoodsReceipt(CreateGoodsReceiptRequest) returns (GoodsReceipt);
-  rpc GetGoodsReceipt(GetGoodsReceiptRequest) returns (GoodsReceipt);
-  rpc ListGoodsReceipts(ListGoodsReceiptsRequest) returns (ListGoodsReceiptsResponse);
+  string item_description = 3;
+  Decimal quantity_ordered = 4;
+  Decimal quantity_received = 5;
+  Decimal unit_price = 6;
+  Decimal line_amount = 7;
+  optional string delivery_date = 8;
+  string status = 9;
 }
 
 message GoodsReceipt {
@@ -181,53 +195,21 @@ message GoodsReceipt {
   string po_id = 3;
   string received_date = 4;
   string received_by = 5;
-  GoodsReceiptStatus status = 6;
+  string status = 6;
   repeated GoodsReceiptLine lines = 7;
-  fusion.common.v1.AuditInfo audit_info = 8;
+  int32 version = 8;
+  int64 created_at_unix = 9;
+  int64 updated_at_unix = 10;
 }
 
 message GoodsReceiptLine {
   string id = 1;
   string po_line_id = 2;
-  string quantity_received = 3;
-  GoodsReceiptCondition condition = 4;
+  Decimal quantity_received = 3;
+  optional string notes = 4;
 }
 
-enum GoodsReceiptStatus {
-  GOODS_RECEIPT_STATUS_UNSPECIFIED = 0;
-  GOODS_RECEIPT_STATUS_DRAFT = 1;
-  GOODS_RECEIPT_STATUS_CONFIRMED = 2;
-}
-
-enum GoodsReceiptCondition {
-  GOODS_RECEIPT_CONDITION_UNSPECIFIED = 0;
-  GOODS_RECEIPT_CONDITION_ACCEPTED = 1;
-  GOODS_RECEIPT_CONDITION_DAMAGED = 2;
-  GOODS_RECEIPT_CONDITION_REJECTED = 3;
-}
-
-message CreateGoodsReceiptRequest {
-  string po_id = 1;
-  string received_date = 2;
-  repeated CreateGoodsReceiptLineRequest lines = 3;
-}
-
-message CreateGoodsReceiptLineRequest {
-  string po_line_id = 1;
-  string quantity_received = 2;
-  GoodsReceiptCondition condition = 3;
-}
-
-message GetGoodsReceiptRequest {
-  string id = 1;
-}
-
-message ListGoodsReceiptsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string po_id = 2;
-}
-
-message ListGoodsReceiptsResponse {
-  repeated GoodsReceipt goods_receipts = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
+message Decimal {
+  int64 units = 1;
+  int32 nanos = 2;
 }

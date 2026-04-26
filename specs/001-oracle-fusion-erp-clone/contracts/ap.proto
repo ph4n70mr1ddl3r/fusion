@@ -1,277 +1,332 @@
-// Accounts Payable Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.ap.v1;
+option go_package = "github.com/fusion/ap/v1";
 
-import "common.proto";
+// Accounts Payable Service — vendors, invoices, payments
+// Consumed by: API gateway, GL service (journal posting), reporting service
 
-// === Vendor Management ===
-
-service VendorService {
+service ApService {
+  // Vendors
   rpc CreateVendor(CreateVendorRequest) returns (Vendor);
   rpc GetVendor(GetVendorRequest) returns (Vendor);
   rpc ListVendors(ListVendorsRequest) returns (ListVendorsResponse);
   rpc UpdateVendor(UpdateVendorRequest) returns (Vendor);
+
+  // Invoices
+  rpc CreateInvoice(CreateInvoiceRequest) returns (Invoice);
+  rpc GetInvoice(GetInvoiceRequest) returns (Invoice);
+  rpc ListInvoices(ListInvoicesRequest) returns (ListInvoicesResponse);
+  rpc UpdateInvoice(UpdateInvoiceRequest) returns (Invoice);
+  rpc SubmitInvoiceForApproval(SubmitInvoiceForApprovalRequest) returns (Invoice);
+  rpc ApproveInvoice(ApproveInvoiceRequest) returns (Invoice);
+  rpc PostInvoice(PostInvoiceRequest) returns (Invoice);
+  rpc CancelInvoice(CancelInvoiceRequest) returns (Invoice);
+
+  // Three-way matching
+  rpc MatchInvoiceToPo(MatchInvoiceToPoRequest) returns (MatchInvoiceToPoResponse);
+  rpc ReleaseInvoiceHold(ReleaseInvoiceHoldRequest) returns (Invoice);
+
+  // Payments
+  rpc CreatePayment(CreatePaymentRequest) returns (Payment);
+  rpc GetPayment(GetPaymentRequest) returns (Payment);
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+  rpc IssuePayment(IssuePaymentRequest) returns (Payment);
+  rpc ReconcilePayment(ReconcilePaymentRequest) returns (Payment);
+
+  // Payment batches
+  rpc CreatePaymentBatch(CreatePaymentBatchRequest) returns (PaymentBatch);
+  rpc IssuePaymentBatch(IssuePaymentBatchRequest) returns (PaymentBatch);
+
+  // Reports
+  rpc GetAgingReport(AgingReportRequest) returns (AgingReportResponse);
+
+  // Health
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
 }
 
-message Vendor {
-  string id = 1;
-  string vendor_code = 2;
-  string name = 3;
-  fusion.common.v1.Address address = 4;
-  string payment_terms = 5;
-  string tax_id = 6;
-  string contact_email = 7;
-  string contact_phone = 8;
-  bool is_active = 9;
-  fusion.common.v1.AuditInfo audit_info = 10;
-}
+// --- Messages ---
 
 message CreateVendorRequest {
   string vendor_code = 1;
   string name = 2;
-  fusion.common.v1.Address address = 3;
-  string payment_terms = 4;
-  string tax_id = 5;
-  string contact_email = 6;
-  string contact_phone = 7;
+  optional string address_line1 = 3;
+  optional string city = 4;
+  optional string state = 5;
+  optional string postal_code = 6;
+  optional string country = 7;
+  int32 payment_terms_days = 8;
+  optional string tax_id = 9;
+  optional string bank_name = 10;
+  optional string bank_account_number = 11;
+  optional string bank_routing_number = 12;
 }
 
-message GetVendorRequest {
-  string id = 1;
-}
+message GetVendorRequest { string id = 1; }
 
 message ListVendorsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  bool active_only = 2;
-  string name_contains = 3;
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional string search = 4;
 }
 
 message ListVendorsResponse {
   repeated Vendor vendors = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
+  string next_page_token = 2;
+  int32 total_count = 3;
 }
 
 message UpdateVendorRequest {
   string id = 1;
-  string name = 2;
-  fusion.common.v1.Address address = 3;
-  string payment_terms = 4;
-  string contact_email = 5;
-  string contact_phone = 6;
+  optional string name = 2;
+  optional string address_line1 = 3;
+  optional string city = 4;
+  optional string state = 5;
+  optional string postal_code = 6;
+  optional string country = 7;
+  optional int32 payment_terms_days = 8;
+  optional string bank_name = 9;
+  optional string bank_account_number = 10;
+  optional string bank_routing_number = 11;
+  int32 version = 12;
 }
 
-// === AP Invoice ===
-
-service ApInvoiceService {
-  rpc CreateInvoice(CreateApInvoiceRequest) returns (ApInvoice);
-  rpc GetInvoice(GetApInvoiceRequest) returns (ApInvoice);
-  rpc ListInvoices(ListApInvoicesRequest) returns (ListApInvoicesResponse);
-  rpc ApproveInvoice(ApproveApInvoiceRequest) returns (ApInvoice);
-  rpc PostInvoice(PostApInvoiceRequest) returns (ApInvoice);
-}
-
-message ApInvoice {
-  string id = 1;
-  string invoice_number = 2;
-  string vendor_id = 3;
-  string invoice_date = 4;
-  string due_date = 5;
-  string description = 6;
-  fusion.common.v1.Money subtotal = 7;
-  fusion.common.v1.Money tax_amount = 8;
-  fusion.common.v1.Money total_amount = 9;
-  string currency_code = 10;
-  ApInvoiceStatus status = 11;
-  ApPaymentStatus payment_status = 12;
-  fusion.common.v1.Money paid_amount = 13;
-  string po_reference = 14;
-  string gl_journal_entry_id = 15;
-  repeated ApInvoiceLine lines = 16;
-  fusion.common.v1.AuditInfo audit_info = 17;
-}
-
-message ApInvoiceLine {
-  string id = 1;
-  int32 line_number = 2;
-  string description = 3;
-  string quantity = 4;          // Decimal as string to avoid precision loss
-  string unit_price = 5;
-  string line_total = 6;
-  string tax_code = 7;
-  string gl_account_id = 8;
-}
-
-enum ApInvoiceStatus {
-  AP_INVOICE_STATUS_UNSPECIFIED = 0;
-  AP_INVOICE_STATUS_DRAFT = 1;
-  AP_INVOICE_STATUS_PENDING_APPROVAL = 2;
-  AP_INVOICE_STATUS_APPROVED = 3;
-  AP_INVOICE_STATUS_POSTED = 4;
-  AP_INVOICE_STATUS_PAID = 5;
-  AP_INVOICE_STATUS_CANCELLED = 6;
-}
-
-enum ApPaymentStatus {
-  AP_PAYMENT_STATUS_UNSPECIFIED = 0;
-  AP_PAYMENT_STATUS_UNPAID = 1;
-  AP_PAYMENT_STATUS_PARTIALLY_PAID = 2;
-  AP_PAYMENT_STATUS_PAID = 3;
-}
-
-message CreateApInvoiceRequest {
+message CreateInvoiceRequest {
   string vendor_id = 1;
-  string invoice_date = 2;
-  string due_date = 3;
-  string description = 4;
-  string currency_code = 5;
-  string po_reference = 6;
-  repeated CreateApInvoiceLineRequest lines = 7;
+  string invoice_number = 2;
+  string invoice_date = 3;
+  string due_date = 4;
+  optional string description = 5;
+  string currency = 6;
+  repeated InvoiceLine lines = 7;
+  optional string purchase_order_id = 8;
+  optional string goods_receipt_id = 9;
 }
 
-message CreateApInvoiceLineRequest {
-  string description = 1;
-  string quantity = 2;
-  string unit_price = 3;
-  string tax_code = 4;
-  string gl_account_id = 5;
+message GetInvoiceRequest { string id = 1; }
+
+message ListInvoicesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional string vendor_id = 4;
+  optional string date_from = 5;
+  optional string date_to = 6;
 }
 
-message GetApInvoiceRequest {
+message ListInvoicesResponse {
+  repeated Invoice invoices = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message UpdateInvoiceRequest {
   string id = 1;
+  optional string description = 2;
+  repeated InvoiceLine lines = 3;
+  int32 version = 4;
 }
 
-message ListApInvoicesRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  ApInvoiceStatus status_filter = 2;
-  string vendor_id = 3;
-  string date_from = 4;
-  string date_to = 5;
-}
-
-message ListApInvoicesResponse {
-  repeated ApInvoice invoices = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
-}
-
-message ApproveApInvoiceRequest {
+message SubmitInvoiceForApprovalRequest {
   string id = 1;
+  int32 version = 2;
 }
 
-message PostApInvoiceRequest {
+message ApproveInvoiceRequest {
   string id = 1;
+  optional string comments = 2;
 }
 
-// === Payment Processing ===
-
-service PaymentService {
-  rpc CreatePayment(CreatePaymentRequest) returns (Payment);
-  rpc GetPayment(GetPaymentRequest) returns (Payment);
-  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
-  rpc ProcessPaymentBatch(ProcessPaymentBatchRequest) returns (ProcessPaymentBatchResponse);
-}
-
-message Payment {
+message PostInvoiceRequest {
   string id = 1;
-  string payment_number = 2;
-  string vendor_id = 3;
-  string payment_date = 4;
-  fusion.common.v1.Money amount = 5;
-  PaymentMethod payment_method = 6;
-  PaymentStatus status = 7;
-  string gl_journal_entry_id = 8;
-  repeated PaymentAllocation allocations = 9;
-  fusion.common.v1.AuditInfo audit_info = 10;
+  int32 version = 2;
 }
 
-message PaymentAllocation {
+message CancelInvoiceRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message MatchInvoiceToPoRequest {
   string invoice_id = 1;
-  fusion.common.v1.Money amount = 2;
+  string purchase_order_id = 2;
+  Decimal tolerance_pct = 3;  // default 5%
 }
 
-enum PaymentMethod {
-  PAYMENT_METHOD_UNSPECIFIED = 0;
-  PAYMENT_METHOD_CHECK = 1;
-  PAYMENT_METHOD_WIRE_TRANSFER = 2;
-  PAYMENT_METHOD_ACH = 3;
-  PAYMENT_METHOD_CASH = 4;
+message MatchInvoiceToPoResponse {
+  bool matched = 1;
+  repeated string variances = 2;
+  string match_status = 3;
 }
 
-enum PaymentStatus {
-  PAYMENT_STATUS_UNSPECIFIED = 0;
-  PAYMENT_STATUS_DRAFT = 1;
-  PAYMENT_STATUS_ISSUED = 2;
-  PAYMENT_STATUS_RECONCILED = 3;
-  PAYMENT_STATUS_CANCELLED = 4;
+message ReleaseInvoiceHoldRequest {
+  string id = 1;
+  string reason = 2;
 }
 
 message CreatePaymentRequest {
   string vendor_id = 1;
   string payment_date = 2;
-  fusion.common.v1.Money amount = 3;
-  PaymentMethod payment_method = 4;
-  repeated PaymentAllocation allocations = 5;
+  string payment_method = 3;
+  string currency = 4;
+  repeated PaymentInvoiceAllocation allocations = 5;
 }
 
-message GetPaymentRequest {
-  string id = 1;
+message PaymentInvoiceAllocation {
+  string invoice_id = 1;
+  Decimal applied_amount = 2;
 }
+
+message GetPaymentRequest { string id = 1; }
 
 message ListPaymentsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string vendor_id = 2;
-  PaymentStatus status_filter = 3;
-  string date_from = 4;
-  string date_to = 5;
+  int32 page_size = 1;
+  string page_token = 2;
+  optional string status = 3;
+  optional string vendor_id = 4;
 }
 
 message ListPaymentsResponse {
   repeated Payment payments = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
+  string next_page_token = 2;
+  int32 total_count = 3;
 }
 
-message ProcessPaymentBatchRequest {
-  repeated string invoice_ids = 1; // Invoices to pay
-  PaymentMethod payment_method = 2;
-  string payment_date = 3;
+message IssuePaymentRequest {
+  string id = 1;
+  int32 version = 2;
 }
 
-message ProcessPaymentBatchResponse {
-  repeated Payment payments = 1;
+message ReconcilePaymentRequest {
+  string id = 1;
+  string bank_statement_line_id = 2;
+  int32 version = 3;
 }
 
-// === AP Aging Report ===
-
-service ApAgingService {
-  rpc GetApAging(ApAgingRequest) returns (ApAgingReport);
+message CreatePaymentBatchRequest {
+  string payment_date = 1;
+  string payment_method = 2;
+  repeated string vendor_ids = 3;  // empty = all vendors with due invoices
+  optional string due_before = 4;
 }
 
-message ApAgingReport {
-  string as_of_date = 1;
-  repeated ApAgingLine lines = 2;
-  ApAgingTotals totals = 3;
+message IssuePaymentBatchRequest {
+  string batch_id = 1;
 }
 
-message ApAgingLine {
+message AgingReportRequest {
+  optional string as_of_date = 1;
+}
+
+message AgingReportResponse {
+  repeated AgingLine lines = 1;
+  Decimal total_current = 2;
+  Decimal total_30_days = 3;
+  Decimal total_60_days = 4;
+  Decimal total_90_plus = 5;
+  Decimal grand_total = 6;
+}
+
+message AgingLine {
   string vendor_id = 1;
   string vendor_name = 2;
-  fusion.common.v1.Money current = 3;
-  fusion.common.v1.Money aging_30 = 4;
-  fusion.common.v1.Money aging_60 = 5;
-  fusion.common.v1.Money aging_90_plus = 6;
-  fusion.common.v1.Money total = 7;
+  Decimal current = 3;
+  Decimal days_30 = 4;
+  Decimal days_60 = 5;
+  Decimal days_90_plus = 6;
+  Decimal total = 7;
 }
 
-message ApAgingTotals {
-  fusion.common.v1.Money current = 1;
-  fusion.common.v1.Money aging_30 = 2;
-  fusion.common.v1.Money aging_60 = 3;
-  fusion.common.v1.Money aging_90_plus = 4;
-  fusion.common.v1.Money total = 5;
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
+
+// --- Domain models ---
+
+message Vendor {
+  string id = 1;
+  string vendor_code = 2;
+  string name = 3;
+  optional string address_line1 = 4;
+  optional string city = 5;
+  optional string state = 6;
+  optional string postal_code = 7;
+  optional string country = 8;
+  int32 payment_terms_days = 9;
+  optional string tax_id = 10;
+  string status = 11;
+  int32 version = 12;
+  int64 created_at_unix = 13;
+  int64 updated_at_unix = 14;
 }
 
-message ApAgingRequest {
-  string as_of_date = 1;
+message Invoice {
+  string id = 1;
+  string invoice_number = 2;
+  string vendor_id = 3;
+  string invoice_date = 4;
+  string due_date = 5;
+  optional string description = 6;
+  Decimal subtotal = 7;
+  Decimal tax_amount = 8;
+  Decimal total_amount = 9;
+  string currency = 10;
+  string status = 11;
+  optional string purchase_order_id = 12;
+  optional string match_status = 13;
+  optional string hold_reason = 14;
+  string correlation_id = 15;
+  optional string posted_journal_entry_id = 16;
+  repeated InvoiceLine lines = 17;
+  int32 version = 18;
+  int64 created_at_unix = 19;
+  int64 updated_at_unix = 20;
+}
+
+message InvoiceLine {
+  string id = 1;
+  int32 line_number = 2;
+  string description = 3;
+  Decimal quantity = 4;
+  Decimal unit_price = 5;
+  Decimal line_amount = 6;
+  optional string tax_code_id = 7;
+  Decimal tax_amount = 8;
+  optional string po_line_id = 9;
+}
+
+message Payment {
+  string id = 1;
+  string payment_number = 2;
+  string payment_date = 3;
+  string payment_method = 4;
+  string vendor_id = 5;
+  Decimal total_amount = 6;
+  string currency = 7;
+  string status = 8;
+  optional string batch_id = 9;
+  string correlation_id = 10;
+  string reconciliation_status = 11;
+  optional string bank_statement_line_id = 12;
+  optional string posted_journal_entry_id = 13;
+  int32 version = 14;
+  int64 created_at_unix = 15;
+  int64 updated_at_unix = 16;
+}
+
+message PaymentBatch {
+  string id = 1;
+  string payment_date = 2;
+  string payment_method = 3;
+  string status = 4;
+  int32 payment_count = 5;
+  Decimal total_amount = 6;
+  int64 created_at_unix = 7;
+}
+
+message Decimal {
+  int64 units = 1;
+  int32 nanos = 2;
 }

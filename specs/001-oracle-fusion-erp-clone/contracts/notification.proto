@@ -1,100 +1,79 @@
-// Notification Service Contract
-// Version: 1.0.0
-
 syntax = "proto3";
-
 package fusion.notification.v1;
+option go_package = "github.com/fusion/notification/v1";
 
-import "common.proto";
-
-// === Notification Management ===
+// Notification Service — in-app notifications (polling-based)
+// Consumed by: API gateway, all services (send notifications)
 
 service NotificationService {
-  rpc SendNotification(SendNotificationRequest) returns (Notification);
-  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
-  rpc MarkNotificationRead(MarkNotificationReadRequest) returns (Notification);
-  rpc MarkAllRead(MarkAllReadRequest) returns (fusion.common.v1.Empty);
-  rpc GetUnreadCount(GetUnreadCountRequest) returns (UnreadCountResponse);
+  rpc CreateNotification(CreateNotificationRequest) returns (Notification);
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse);
+  rpc MarkAllAsRead(MarkAllAsReadRequest) returns (MarkAllAsReadResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ready(ReadyRequest) returns (ReadyResponse);
 }
 
-message Notification {
-  string id = 1;
-  string user_id = 2;
-  NotificationType type = 3;
-  string title = 4;
-  string body = 5;
-  string entity_type = 6;
-  string entity_id = 7;
-  NotificationChannel channel = 8;
-  bool is_read = 9;
-  string read_at = 10;
-  string created_at = 11;
-}
+// --- Messages ---
 
-enum NotificationType {
-  NOTIFICATION_TYPE_UNSPECIFIED = 0;
-  NOTIFICATION_TYPE_APPROVAL_REQUIRED = 1;
-  NOTIFICATION_TYPE_APPROVAL_COMPLETED = 2;
-  NOTIFICATION_TYPE_APPROVAL_ESCALATED = 3;
-  NOTIFICATION_TYPE_SYSTEM_ALERT = 4;
-  NOTIFICATION_TYPE_PERIOD_CLOSE = 5;
-  NOTIFICATION_TYPE_CREDIT_HOLD = 6;
-}
-
-enum NotificationChannel {
-  NOTIFICATION_CHANNEL_UNSPECIFIED = 0;
-  NOTIFICATION_CHANNEL_IN_APP = 1;
-  NOTIFICATION_CHANNEL_EMAIL = 2;
-  NOTIFICATION_CHANNEL_BOTH = 3;
-}
-
-message SendNotificationRequest {
-  string user_id = 1;
-  NotificationType type = 2;
+message CreateNotificationRequest {
+  string recipient_user_id = 1;
+  string type = 2;             // approval, system, alert, budget_variance
   string title = 3;
   string body = 4;
-  string entity_type = 5;
-  string entity_id = 6;
-  NotificationChannel channel = 7;
+  optional string reference_entity_type = 5;
+  optional string reference_entity_id = 6;
 }
 
-message ListNotificationsRequest {
-  fusion.common.v1.PaginationRequest pagination = 1;
-  string user_id = 2;
-  bool unread_only = 3;
-  NotificationType type_filter = 4;
+message GetNotificationsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional bool unread_only = 3;
+  optional string type = 4;
 }
 
-message ListNotificationsResponse {
+message GetNotificationsResponse {
   repeated Notification notifications = 1;
-  fusion.common.v1.PaginationResponse pagination = 2;
+  string next_page_token = 2;
+  int32 total_count = 3;
 }
 
-message MarkNotificationReadRequest {
-  string id = 1;
+message MarkAsReadRequest {
+  string notification_id = 1;
 }
 
-message MarkAllReadRequest {
-  string user_id = 1;
+message MarkAsReadResponse {}
+
+message MarkAllAsReadRequest {}
+
+message MarkAllAsReadResponse {
+  int32 marked_count = 1;
 }
 
-message GetUnreadCountRequest {
-  string user_id = 1;
-}
+message GetUnreadCountRequest {}
 
-message UnreadCountResponse {
+message GetUnreadCountResponse {
   int32 count = 1;
 }
 
-// === Event Subscription (for inter-service use) ===
+message HealthRequest {}
+message HealthResponse { string status = 1; }
+message ReadyRequest {}
+message ReadyResponse { bool ready = 1; repeated string checks = 2; }
 
-service NotificationEventService {
-  // Called by other services to trigger notifications
-  rpc PublishEvent(PublishEventRequest) returns (fusion.common.v1.Empty);
-}
+// --- Domain models ---
 
-message PublishEventRequest {
-  string event_type = 1;  // e.g., "approval.required", "period.closed"
-  string payload = 2;     // JSON payload
-  string tenant_id = 3;
+message Notification {
+  string id = 1;
+  string recipient_user_id = 2;
+  string type = 3;
+  string title = 4;
+  string body = 5;
+  optional string reference_entity_type = 6;
+  optional string reference_entity_id = 7;
+  bool is_read = 8;
+  optional int64 read_at_unix = 9;
+  int64 created_at_unix = 10;
 }
