@@ -16,6 +16,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 - Backend: axum 0.8, tonic 0.12, prost 0.13, tokio 1.x, sqlx 0.8 (PostgreSQL, compile-time checked), serde 1.x, tracing 0.1, uuid 1.x, chrono 0.4
 - Frontend: React 19, TypeScript 5.x, TanStack Query, Recharts, TanStack Table
 **Storage**: PostgreSQL 16 (one database per service for strict isolation)
+**Message Broker**: NATS 2 with JetStream (selected for lightweight footprint, native JetStream durable messaging, and first-class Rust client via `async-nats`)
 **Testing**: cargo test / cargo nextest (unit + integration), tonic mock-based contract tests, Playwright (E2E)
 **Target Platform**: Linux server (Docker containers), modern web browsers (Chrome, Firefox, Safari, Edge)
 **Project Type**: Web service (microservices) + single-page web application

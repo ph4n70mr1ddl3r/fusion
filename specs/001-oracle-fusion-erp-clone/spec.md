@@ -222,12 +222,12 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **FR-003**: System MUST enforce balanced journal entries (total debits = total credits) before allowing posting.
 - **FR-004**: System MUST support financial period open/close management with the ability to prevent postings to closed periods.
 - **FR-005**: System MUST generate a trial balance showing opening balances, period activity, and closing balances for all accounts.
-- **FR-006**: System MUST maintain a complete, immutable financial audit trail — every posted transaction can be fully traced from its source document (invoice, payment, receipt, etc.) through the corresponding GL journal entry to its impact on financial reports.
+- **FR-006**: System MUST maintain a complete, immutable financial audit trail — every posted transaction can be fully traced from its source document (invoice, payment, receipt, etc.) through the corresponding GL journal entry to its impact on financial reports. This is distinct from the security audit log (FR-032) which records all user actions.
 
 **Accounts Payable**
 - **FR-007**: System MUST maintain vendor master records with contact details, payment terms, tax information, and bank details.
 - **FR-008**: System MUST support invoice entry, approval routing, and posting with automatic GL impact.
-- **FR-009**: System MUST support payment processing (manual and batch) with payment method selection and bank reconciliation.
+- **FR-009**: System MUST support payment processing (manual and batch) with payment method selection, manual bank reconciliation (matching system payments to imported bank statement lines), and payment status tracking.
 - **FR-010**: System MUST generate an accounts payable aging report categorized by time buckets (current, 30, 60, 90+ days).
 
 **Accounts Receivable**
@@ -241,13 +241,14 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **FR-016**: System MUST support purchase requisition creation, editing, and submission for approval.
 - **FR-017**: System MUST allow conversion of approved requisitions to purchase orders with supplier assignment and pricing.
 - **FR-018**: System MUST support goods receipt recording against purchase orders with quantity verification.
-- **FR-019**: System MUST support three-way matching (PO, goods receipt, invoice) in the accounts payable process. When a match fails (quantity or price variance exceeds a configurable tolerance threshold, default 5%), the system MUST place the invoice on hold and notify the AP clerk for manual review.
+- **FR-019**: *(Cross-cutting: Procurement + AP)* System MUST support three-way matching (PO, goods receipt, invoice) in the accounts payable process. When a match fails (quantity or price variance exceeds a configurable tolerance threshold, default 5%), the system MUST place the invoice on hold and notify the AP clerk for manual review.
 
 **Reporting & Dashboards**
 - **FR-020**: System MUST generate standard financial reports: income statement, balance sheet, and cash flow statement.
-- **FR-021**: System MUST provide a real-time financial dashboard with key performance indicators (revenue, expenses, cash position, receivables, payables).
-- **FR-022**: System MUST support a report builder tool for creating custom reports with configurable fields, filters, and groupings.
+- **FR-021**: System MUST provide a financial dashboard with key performance indicators (revenue, expenses, cash position, receivables, payables) that auto-refreshes every 60 seconds with a manual refresh option. KPIs MUST reflect data no older than 60 seconds at time of display.
+- **FR-022**: System MUST support a report builder tool for creating custom reports with configurable fields, filters, and groupings. The report builder MUST support querying data from GL account balances and transactions, AP invoices and payments, AR invoices and receipts, and budget actuals. Custom report definitions are saved and re-runnable.
 - **FR-023**: System MUST support exporting reports in common formats (PDF, spreadsheet).
+  > **Note**: Report export (this FR) produces formatted PDF/XLSX documents. Raw data table CSV export for all list views is covered separately in the project assumptions and implemented as a cross-cutting concern.
 
 **Budgeting**
 - **FR-024**: System MUST support budget creation by account, department, and period with manual entry or file upload.
@@ -261,9 +262,10 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **FR-030**: System MUST support financial consolidation with intercompany elimination and currency translation.
 
 **Access Control & Security**
-- **FR-031**: System MUST provide role-based access control with configurable permissions per module, function, and data scope.
-- **FR-032**: System MUST log all user actions (create, read, update, delete) with user identity, timestamp, and affected record in an immutable audit log.
+- **FR-031**: System MUST provide role-based access control with configurable permissions per module, function, and data scope. Data scopes MUST include: `OWN` (records created by the user), `DEPARTMENT` (records within the user's department), and `ALL` (all records within the tenant).
+- **FR-032**: System MUST log all user actions (create, read, update, delete) with user identity, timestamp, and affected record in an immutable audit log. This security audit log is distinct from the financial audit trail (FR-006) which tracks financial transaction lineage.
 - **FR-033**: System MUST enforce strong password policies (minimum 12 characters, at least one uppercase letter, one digit, one special character) and support session management with configurable timeouts (default 30 minutes, configurable per tenant).
+- **FR-033a**: System MUST support user authentication via email/password with Argon2 hashing, JWT RS256 access tokens and refresh tokens, including login, logout, token refresh flows, and password recovery via email-based reset link with configurable expiry (default 1 hour).
 
 **Workflow & Approvals**
 - **FR-034**: System MUST support configurable multi-step approval workflows for journal entries, invoices, and purchase orders based on rules (amount thresholds, department, transaction type).
@@ -301,14 +303,14 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 
 ### Measurable Outcomes
 
-- **SC-001**: A financial controller can set up a complete chart of accounts and post the first journal entry within 30 minutes of initial system configuration.
-- **SC-002**: The system supports at least 100 concurrent users entering transactions without noticeable performance degradation (response times under 3 seconds for any transaction entry or report generation).
+- **SC-001**: *(Post-launch usability metric — not a buildable requirement)* A financial controller can set up a complete chart of accounts and post the first journal entry within 30 minutes of initial system configuration.
+- **SC-002**: The system supports at least 100 concurrent users (each generating an average of 5 requests/minute) entering transactions without noticeable performance degradation (95th percentile response time under 3 seconds for any transaction entry or report generation).
 - **SC-003**: All standard financial reports (income statement, balance sheet, cash flow, trial balance, aging reports) generate within 10 seconds for organizations with up to 100,000 posted transactions.
 - **SC-004**: *(Post-launch usability metric — not a buildable requirement)* 95% of users can complete their primary workflow (invoice entry, payment processing, report generation) on the first attempt without training documentation.
 - **SC-005**: The approval workflow routes and delivers notifications within 5 seconds of transaction submission, ensuring timely processing.
 - **SC-006**: The system maintains 100% audit trail accuracy — every posted transaction can be fully traced from source document to GL entry to financial report.
 - **SC-007**: Currency conversion and revaluation calculations are accurate to two decimal places with no manual corrections required.
-- **SC-008**: A new legal entity can be configured and transacting within 1 hour, demonstrating rapid multi-org deployment capability.
+- **SC-008**: *(Post-launch usability metric — not a buildable requirement)* A new legal entity can be configured and transacting within 1 hour, demonstrating rapid multi-org deployment capability.
 - **SC-009**: The system handles end-of-period close processing (depreciation, revaluation, consolidation) for 1,000+ assets and 10,000+ journal entries within 5 minutes.
 - **SC-010**: *(Post-launch usability metric — not a buildable requirement)* 90% of users report the interface as intuitive and easy to navigate in post-deployment feedback.
 
@@ -329,4 +331,4 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - Regulatory compliance frameworks (SOX, IFRS, GAAP) are supported through the system's reporting and audit capabilities but legal certification is out of scope.
 - Inventory management, project management, and human resources modules are out of scope for this ERP clone — the focus is on financial modules.
 - Manufacturing, supply chain planning, and CRM modules are out of scope.
-- Real-time bank feeds and automated bank reconciliation are future enhancements; manual bank reconciliation is included.
+- Manual bank reconciliation (matching payments to imported bank statement lines) is included in v1. Real-time bank feeds and automated bank reconciliation are future enhancements.

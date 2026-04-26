@@ -3,6 +3,8 @@
 **Input**: Design documents from `/specs/001-oracle-fusion-erp-clone/`
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/
 
+> **Note on task numbering**: Some IDs are non-sequential (e.g., T011a, T016a) due to insertion during planning. These IDs are stable and should not be renumbered to preserve traceability across documents.
+
 **Tests**: Included per Constitution Principle I (Test-Driven Development). Every service follows Red-Green-Refactor.
 
 **Organization**: Tasks grouped by user story for independent implementation and testing.
@@ -48,7 +50,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T003 [P] Create `docker-compose.yml` with PostgreSQL 16 and NATS 2 (JetStream enabled) services with health checks
 - [ ] T004 [P] Create multi-stage `Dockerfile` template for Rust service builds in `Dockerfile`
 - [ ] T005 Copy proto definitions from `specs/001-oracle-fusion-erp-clone/contracts/` to versioned `proto/` directory structure (`proto/common/v1/types.proto`, `proto/gl/v1/gl.proto`, etc.)
-- [ ] T006 [P] Implement `crates/proto/` with `build.rs` for proto compilation via `tonic-build`, generating Rust types from all proto files
+- [ ] T006 [P] Implement `crates/proto/` with `build.rs` for proto compilation via `tonic-build`, generating Rust types from all proto files. Generated types MUST be committed to version control per Constitution Principle IV.
 - [ ] T007 [P] Implement `crates/types/` with shared domain types (`Money`, `Currency`, `DecimalValue`, `AuditInfo`, `TenantContext`, `Uuid`) mapping to proto types
 - [ ] T008 [P] Implement `crates/db/` with sqlx PostgreSQL pool management, tenant schema resolution (`SET search_path`), and migration runner helper
 - [ ] T009 [P] Implement `crates/auth/` with JWT RS256 validation, axum middleware for tenant extraction from JWT claims, and `AuthorizationService` trait
@@ -204,6 +206,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T092a [US2] Implement invoice hold resolution workflow in `services/ap/src/service/invoice_service.rs` — list held invoices with hold reasons, release from hold after manual review (with approver comment), reject held invoice (notify vendor contact), record resolution in audit trail
 - [ ] T093 [US2] Implement `PaymentService` (create single payment, process batch with payment method grouping, allocate to invoices, GL entry via NATS) in `services/ap/src/service/payment_service.rs`
 - [ ] T094 [US2] Implement `ApAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ap/src/service/aging_service.rs`
+- [ ] T094a [US2] Implement `BankReconciliationService` (import bank statement CSV, match statement lines to system payments by amount/date/reference, allow manual matching for unmatched items, mark reconciled) in `services/ap/src/service/reconciliation_service.rs`
+- [ ] T094b [P] [US2] Implement `BankReconciliationService` gRPC handler in `services/ap/src/handlers/reconciliation_handler.rs`
 - [ ] T095 [US2] Implement AP NATS event publisher (`InvoicePosted`, `PaymentProcessed`) and subscriber (GL confirmation, workflow approval requests) in `services/ap/src/events.rs`
 - [ ] T096 [US2] Implement `VendorService` gRPC handlers in `services/ap/src/handlers/vendor_handler.rs`
 - [ ] T097 [P] [US2] Implement `ApInvoiceService` gRPC handlers (including hold resolution: list holds, release, reject) in `services/ap/src/handlers/invoice_handler.rs`
@@ -219,6 +223,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T104 [P] [US2] Create `web/src/pages/ap/Vendors.tsx` — vendor list with search, create/edit vendor modal, address and payment terms
 - [ ] T105 [P] [US2] Create `web/src/pages/ap/Invoices.tsx` — invoice list with status filters (including HELD status), create invoice form with line item grid, auto-calculation, approve/post actions, held invoice review panel with release/reject actions
 - [ ] T106 [P] [US2] Create `web/src/pages/ap/Payments.tsx` — payment list, create payment with invoice allocation, batch payment processing
+- [ ] T106a [P] [US2] Create `web/src/pages/ap/BankReconciliation.tsx` — upload bank statement, side-by-side matching view, reconcile action
 - [ ] T107 [P] [US2] Create `web/src/pages/ap/ApAging.tsx` — aging report table with vendor rows and time bucket columns, totals row
 - [ ] T108 [US2] Add AP module routes to `web/src/App.tsx` router with sidebar navigation entries
 
@@ -632,15 +637,16 @@ skip from test tasks directly to implementation tasks without user sign-off.
 | EC-6 | Customer payment not matching any open invoice (unapplied cash) | T300c |
 | EC-7 | Budget fully consumed, additional expense attempted | T300a |
 | EC-8 | Differing intercompany exchange rates during consolidation | T300e |
-| EC-9 | Tax rate changes mid-period | T300e |
+| EC-9 | Tax rate changes mid-period | T300g |
 | EC-10 | Partial receipt / over-delivery against purchase order | T300d |
 
 - [ ] T300a [P] [US1] Write GL edge-case tests: posting to closed period (EC-1), concurrent journal entry editing (EC-4), budget fully consumed posting (EC-7) in `services/gl/tests/edge_case_test.rs`
 - [ ] T300b [P] [US2] Write AP edge-case tests: vendor invoice exceeding PO amount (EC-5), concurrent invoice editing (EC-4) in `services/ap/tests/edge_case_test.rs`
 - [ ] T300c [P] [US3] Write AR edge-case tests: unapplied cash / payment not matching any invoice (spec edge 6) in `services/ar/tests/edge_case_test.rs`
 - [ ] T300d [P] [US4] Write procurement edge-case tests: partial/over-delivery against PO (spec edge 10) in `services/procurement/tests/edge_case_test.rs`
-- [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), mid-period tax rate change (spec edge 9), currency conversion decimal precision validation (SC-007: assert all conversion results rounded to exactly 2 decimal places) in `services/consolidation/tests/edge_case_test.rs`
+- [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), currency conversion decimal precision validation (SC-007: assert all conversion results rounded to exactly 2 decimal places) in `services/consolidation/tests/edge_case_test.rs`
 - [ ] T300f [P] [US9] Write workflow edge-case tests: circular approval reference (spec edge 3), no eligible approvers (spec edge 3) in `services/workflow/tests/edge_case_test.rs`
+- [ ] T300g [P] [US10] Write tax edge-case tests: mid-period tax rate change (spec edge 9) — transactions before effective date use old rate, on/after use new rate, tax report displays both rates separately in `services/tax/tests/edge_case_test.rs`
 - [ ] T305 [P] Add responsive layout and mobile-friendly navigation in `web/src/components/Layout.tsx`
 - [ ] T306 [P] Implement optimistic updates with TanStack Query mutations for frequently modified entities (invoice posting, payment processing, approval actions)
 - [ ] T307 [P] Add CSV/Excel export functionality to all data tables using `web/src/utils/export.ts`
