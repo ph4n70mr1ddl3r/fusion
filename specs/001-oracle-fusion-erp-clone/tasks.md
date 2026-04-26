@@ -45,7 +45,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 **Purpose**: Cargo workspace initialization, shared crates, Docker infrastructure, proto compilation, frontend scaffolding, CI pipeline
 
-- [ ] T001 Create Cargo workspace root with `Cargo.toml`, `rust-toolchain.toml` (MSRV pin), and workspace members for all 13 services + 9 shared crates
+- [ ] T001 Create Cargo workspace root with `Cargo.toml`, `rust-toolchain.toml` (MSRV pin), and workspace members for all 13 services + 10 shared crates
 - [ ] T002 [P] Initialize `web/` frontend with Vite + React 19 + TypeScript 5 + TanStack Query + Zustand + Recharts + TanStack Table in `web/package.json` and `web/vite.config.ts`
 - [ ] T003 [P] Create `docker-compose.yml` with PostgreSQL 16 and NATS 2 (JetStream enabled) services with health checks
 - [ ] T004 [P] Create multi-stage `Dockerfile` template for Rust service builds in `Dockerfile`
@@ -105,6 +105,9 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T036 [P] Implement gateway rate limiting middleware via `tower` in `services/gateway/src/middleware/rate_limit.rs`
 - [ ] T037 Implement gateway server bootstrap with health/readiness, all REST route registrations, and `crates/observability` integration (tracing + Prometheus metrics) in `services/gateway/src/main.rs`
 - [ ] T038 Write gateway integration tests (auth middleware, proxy routing, rate limiting) in `services/gateway/tests/integration_test.rs`
+- [ ] T034a [US8] Add identity REST routes to gateway proxy (login, register, token refresh, password reset, users, roles, audit log) in `services/gateway/src/routes/identity.rs`
+- [ ] T034b [US9] Add workflow REST routes to gateway proxy (workflow CRUD, submit/approve/reject, delegation, history) in `services/gateway/src/routes/workflow.rs`
+- [ ] T034c Add notification REST routes to gateway proxy (list notifications, mark read, unread count, preferences) in `services/gateway/src/routes/notification.rs`
 
 ### Workflow Service (Basic Approvals)
 
@@ -137,8 +140,9 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T057 Scaffold GL service structure in `services/gl/` with `Cargo.toml`, `src/main.rs` (health/readiness stub), `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
 - [ ] T058 [P] Scaffold AP service structure in `services/ap/` with `Cargo.toml`, `src/main.rs` (health/readiness stub), `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
 - [ ] T059 [P] Scaffold AR service structure in `services/ar/` with `Cargo.toml`, `src/main.rs` (health/readiness stub), `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
+- [ ] T059a [P] Create `web/src/pages/Login.tsx` (email/password form, JWT storage, redirect to dashboard) and `web/src/pages/ForgotPassword.tsx` (email entry, reset token submission, new password form) with token refresh handling in `web/src/pages/`
 
-**Checkpoint**: Foundation ready — Identity, Gateway, Workflow, and Notification services are operational. GL, AP, AR services are scaffolded. User story implementation can now begin in parallel.
+**Checkpoint**: Foundation ready — Identity, Gateway, Workflow, and Notification services are operational. Login and password reset pages are functional. GL, AP, AR services are scaffolded. User story implementation can now begin in parallel.
 
 ---
 
@@ -671,7 +675,6 @@ skip from test tasks directly to implementation tasks without user sign-off.
   - SC-009: Period-end close with 1K+ assets and 10K+ journal entries, assert < 5 minutes
   - Use `criterion` for Rust benchmarks and `k6` or `wrk` for HTTP load testing
 - [ ] T308b [US1,US2,US3] Write end-to-end audit trail validation tests: (1) create AP invoice → post → trace from invoice through GL journal entry to trial balance; (2) create AR invoice → post → trace through GL to financial report; (3) verify source document linkage is bidirectional. In `tests/e2e/audit_trail_test.rs`
-- [ ] T309 [P] Add `web/src/pages/Login.tsx` and `web/src/pages/ForgotPassword.tsx` authentication pages with token refresh handling
 - [ ] T310 Final workspace validation: `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --check`, `npm run build` (frontend) all passing
 
 ---
