@@ -298,6 +298,8 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **Role**: A collection of permissions defining user access. Key attributes include role name, module permissions, function permissions, data access scope, and assigned users.
 - **Approval Workflow**: A configurable sequence of approval steps. Key attributes include workflow name, trigger conditions (amount, type, department), approver assignments, and escalation rules.
 - **Tax Rate**: A percentage applied to taxable transactions. Key attributes include tax code, jurisdiction, rate percentage, effective dates, and applicable item categories.
+- **Notification**: A system message delivered to a user. Key attributes include notification ID, recipient user ID, type (approval, system, alert), title, body, reference entity (type + ID), read status, and created timestamp.
+- **Consolidation Run**: A record of a financial consolidation execution. Key attributes include run ID, reporting period, parent entity, included subsidiary IDs, exchange rates used, intercompany eliminations applied, run status, and completed timestamp.
 
 ## Success Criteria *(mandatory)*
 

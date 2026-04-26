@@ -87,6 +87,9 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T027 Implement `AuthenticationService` (login with Argon2 verification, JWT RS256 access token + refresh token generation, refresh flow, logout/revocation) in `services/identity/src/service/auth_service.rs`
 - [ ] T028 [P] Implement `UserService` (create with Argon2 hashing, get, list, update, deactivate) in `services/identity/src/service/user_service.rs`
 - [ ] T029 [P] Implement `RoleService` (create, get, list, assign role to user, revoke role) in `services/identity/src/service/role_service.rs`
+- [ ] T022a Create identity database migration for `password_reset_tokens` table (token_hash, user_id, expires_at, used_at) in `services/identity/migrations/`
+- [ ] T029a [P] Implement `PasswordResetService` (generate secure reset token with configurable expiry (default 1 hour), store hash in `password_reset_tokens` table, send email via `crates/messaging` SMTP helper) in `services/identity/src/service/reset_service.rs`
+- [ ] T029b [P] Implement password reset gRPC handlers (`RequestReset` → generate token + send email, `ConfirmReset` → validate token + update password + invalidate token) in `services/identity/src/handlers/reset_handler.rs`
 - [ ] T030 Implement identity gRPC handlers for `UserService`, `RoleService`, `AuthenticationService` in `services/identity/src/handlers/`
 - [ ] T031 Implement identity server bootstrap with health/readiness endpoints, gRPC server startup, and `crates/observability` integration (tracing + Prometheus metrics) in `services/identity/src/main.rs`
 - [ ] T032 Write identity service integration tests (registration, login, token refresh, role assignment) in `services/identity/tests/integration_test.rs`
@@ -120,7 +123,9 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T050 Create notification database migration for `notifications` table in `services/notification/migrations/`
 - [ ] T051 Implement `NotificationRepository` (create, list by user, mark read, unread count) in `services/notification/src/repository/notification_repo.rs`
 - [ ] T052 Implement `NotificationService` (create, list, mark read, mark all read, unread count) in `services/notification/src/service/notification_service.rs`
-- [ ] T053 Implement notification NATS event subscriber for incoming approval and system events in `services/notification/src/subscriber.rs`
+- [ ] T052a Implement `EmailTransportService` (SMTP via `lettre` crate, HTML/plain text email rendering, configurable sender address) in `services/notification/src/service/email_service.rs`
+- [ ] T052b Add `email_enabled`, `smtp_host`, `smtp_port`, `smtp_user`, `smtp_pass` configuration to notification service environment in `services/notification/src/config.rs`
+- [ ] T053 Implement notification NATS event subscriber for incoming approval and system events — route in-app notifications to DB and email notifications to `EmailTransportService` in `services/notification/src/subscriber.rs`
 - [ ] T054 Implement notification gRPC handlers for `NotificationService` and `NotificationEventService` in `services/notification/src/handlers/`
 - [ ] T055 Implement notification server bootstrap with health/readiness and `crates/observability` integration (tracing + Prometheus metrics) in `services/notification/src/main.rs`
 - [ ] T056 Write notification service tests in `services/notification/tests/integration_test.rs`
@@ -150,15 +155,17 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 1
 
-- [ ] T062 [US1] Create GL database migrations for `chart_of_accounts`, `financial_periods`, `journal_entries`, `journal_entry_lines` tables in `services/gl/migrations/`
+- [ ] T062 [US1] Create GL database migrations for `chart_of_accounts`, `financial_periods`, `journal_entries`, `journal_entry_lines` tables in `services/gl/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `journal_entries` for optimistic locking (EC-4)
 - [ ] T063 [US1] Implement `ChartOfAccount` model and `AccountRepository` (CRUD, hierarchy, segment filtering) in `services/gl/src/repository/account_repo.rs`
 - [ ] T064 [P] [US1] Implement `FinancialPeriod` model and `PeriodRepository` (CRUD, find by date range, open/close) in `services/gl/src/repository/period_repo.rs`
-- [ ] T065 [P] [US1] Implement `JournalEntry` model and `JournalRepository` (CRUD, status transitions, source filtering) in `services/gl/src/repository/journal_repo.rs`
+- [ ] T065 [P] [US1] Implement `JournalEntry` model and `JournalRepository` (CRUD, status transitions, source filtering, optimistic locking: `UPDATE ... SET version = version + 1 WHERE version = $expected_version`) in `services/gl/src/repository/journal_repo.rs`
 - [ ] T066 [US1] Implement `ChartOfAccountsService` (create, get, list with pagination, update, deactivate, hierarchy traversal) in `services/gl/src/service/account_service.rs`
 - [ ] T066a [US1] Implement chart of accounts CSV/Excel import in `services/gl/src/service/account_service.rs` — parse uploaded file, validate account structure, bulk-create accounts with rollback on validation failure
 - [ ] T067 [US1] Implement `FinancialPeriodService` (create, get, list, close period with posting prevention, permanently close) in `services/gl/src/service/period_service.rs`
 - [ ] T068 [US1] Implement `JournalEntryService` (create draft, validate balanced debits/credits, post to open period only, reverse with audit trail, auto-generate entry numbers) in `services/gl/src/service/journal_service.rs`
 - [ ] T069 [US1] Implement `TrialBalanceService` (calculate opening balances, period activity, closing balances, debit/credit totals) in `services/gl/src/service/trial_balance_service.rs`
+- [ ] T069a [US1] Implement `AuditTrailService` (trace transaction lineage: given a source document ID, return the chain from source → GL journal entry → financial report impact; given a GL entry, return the source document) in `services/gl/src/service/audit_trail_service.rs`
+- [ ] T069b [P] [US1] Implement `AuditTrailService` gRPC handler (`TraceTransaction`, `GetSourceDocument`) in `services/gl/src/handlers/audit_trail_handler.rs`
 - [ ] T070 [US1] Implement GL NATS event publisher for `JournalEntryPosted`, `PeriodClosed` events in `services/gl/src/events.rs`
 - [ ] T071 [US1] Implement GL NATS subscriber for receiving AP/AR invoice posting requests in `services/gl/src/subscriber.rs`
 - [ ] T072 [US1] Implement `ChartOfAccountsService` gRPC handlers in `services/gl/src/handlers/account_handler.rs`
@@ -176,7 +183,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T081 [P] [US1] Create `web/src/pages/gl/JournalEntry.tsx` — journal entry form with multi-line debit/credit grid, real-time balance validation, post button, reversal
 - [ ] T082 [P] [US1] Create `web/src/pages/gl/FinancialPeriods.tsx` — period list with status badges, close period action with confirmation
 - [ ] T083 [P] [US1] Create `web/src/pages/gl/TrialBalance.tsx` — trial balance table with opening/period/closing columns, debit/credit totals, export to CSV
-- [ ] T084 [US1] Add GL module routes to `web/src/App.tsx` router with sidebar navigation entries
+- [ ] T083a [P] [US1] Create `web/src/pages/gl/AuditTrail.tsx` — drill-down transaction tracer: search by source document or journal entry, display lineage chain (source → JE → report impact) with linked navigation
+- [ ] T084 [US1] Add GL module routes to `web/src/App.tsx` router with sidebar navigation entries (including audit trail)
 
 **Checkpoint**: General Ledger is fully functional — chart of accounts management, journal entry posting with validation, period close, and trial balance reporting all working independently.
 
@@ -197,12 +205,12 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 2
 
-- [ ] T087 [US2] Create AP database migrations for `vendors`, `ap_invoices`, `ap_invoice_lines`, `payments`, `payment_invoice_allocations` tables in `services/ap/migrations/`
+- [ ] T087 [US2] Create AP database migrations for `vendors`, `ap_invoices`, `ap_invoice_lines`, `payments`, `payment_invoice_allocations` tables in `services/ap/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ap_invoices` for optimistic locking (EC-4)
 - [ ] T088 [US2] Implement `Vendor` model and `VendorRepository` (CRUD, search by name, active filtering) in `services/ap/src/repository/vendor_repo.rs`
-- [ ] T089 [P] [US2] Implement `ApInvoice` model and `InvoiceRepository` (CRUD, status transitions, vendor filtering, date range) in `services/ap/src/repository/invoice_repo.rs`
+- [ ] T089 [P] [US2] Implement `ApInvoice` model and `InvoiceRepository` (CRUD, status transitions, vendor filtering, date range, optimistic locking on update) in `services/ap/src/repository/invoice_repo.rs`
 - [ ] T090 [P] [US2] Implement `Payment` model and `PaymentRepository` (CRUD, batch operations, vendor filtering) in `services/ap/src/repository/payment_repo.rs`
 - [ ] T091 [US2] Implement `VendorService` (create, get, list, update vendor records) in `services/ap/src/service/vendor_service.rs`
-- [ ] T092 [US2] Implement `ApInvoiceService` (create with line items, auto-calculate totals, approve, post with GL journal entry via NATS saga) in `services/ap/src/service/invoice_service.rs`
+- [ ] T092 [US2] Implement `ApInvoiceService` (create with line items, auto-calculate totals, approve, post with GL journal entry via NATS saga, 3-way match validation via procurement gRPC client for PO-linked invoices (T182b), foreign currency exchange rate validation via consolidation service (block if no rate for currency/date — EC-2)) in `services/ap/src/service/invoice_service.rs`
 - [ ] T092a [US2] Implement invoice hold resolution workflow in `services/ap/src/service/invoice_service.rs` — list held invoices with hold reasons, release from hold after manual review (with approver comment), reject held invoice (notify vendor contact), record resolution in audit trail
 - [ ] T093 [US2] Implement `PaymentService` (create single payment, process batch with payment method grouping, allocate to invoices, GL entry via NATS) in `services/ap/src/service/payment_service.rs`
 - [ ] T094 [US2] Implement `ApAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ap/src/service/aging_service.rs`
@@ -246,12 +254,12 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 3
 
-- [ ] T111 [US3] Create AR database migrations for `customers`, `ar_invoices`, `ar_invoice_lines`, `receipts`, `receipt_invoice_allocations` tables in `services/ar/migrations/`
+- [ ] T111 [US3] Create AR database migrations for `customers`, `ar_invoices`, `ar_invoice_lines`, `receipts`, `receipt_invoice_allocations` tables in `services/ar/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ar_invoices` and `receipts` for optimistic locking (EC-4)
 - [ ] T112 [US3] Implement `Customer` model and `CustomerRepository` (CRUD, credit balance tracking, search by name, active filtering) in `services/ar/src/repository/customer_repo.rs`
-- [ ] T113 [P] [US3] Implement `ArInvoice` model and `InvoiceRepository` (CRUD, status transitions, customer filtering, date range) in `services/ar/src/repository/invoice_repo.rs`
+- [ ] T113 [P] [US3] Implement `ArInvoice` model and `InvoiceRepository` (CRUD, status transitions, customer filtering, date range, optimistic locking on update) in `services/ar/src/repository/invoice_repo.rs`
 - [ ] T114 [P] [US3] Implement `Receipt` model and `ReceiptRepository` (CRUD, matching, unapplied amount tracking) in `services/ar/src/repository/receipt_repo.rs`
 - [ ] T115 [US3] Implement `CustomerService` (create, get, list, update, credit limit check with outstanding balance calculation) in `services/ar/src/service/customer_service.rs`
-- [ ] T116 [US3] Implement `ArInvoiceService` (create with line items, auto-calculate totals, post with revenue recognition GL entry via NATS saga, credit limit check before posting) in `services/ar/src/service/invoice_service.rs`
+- [ ] T116 [US3] Implement `ArInvoiceService` (create with line items, auto-calculate totals, post with revenue recognition GL entry via NATS saga, credit limit check before posting, foreign currency exchange rate validation via consolidation service (block if no rate for currency/date — EC-2)) in `services/ar/src/service/invoice_service.rs`
 - [ ] T117 [US3] Implement `ReceiptService` (create with optional pre-match, match/unmatch to invoices, update unapplied amount, GL entry via NATS) in `services/ar/src/service/receipt_service.rs`
 - [ ] T118 [US3] Implement `ArAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ar/src/service/aging_service.rs`
 - [ ] T119 [US3] Implement credit limit enforcement service (check outstanding balance, place customer on hold, emit credit hold notification event) in `services/ar/src/service/credit_service.rs`
@@ -302,7 +310,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T142 [P] [US8] Add permission checks to AP service gRPC handlers (manage vendors, create/approve/post invoices, process payments) in `services/ap/src/handlers/`
 - [ ] T143 [P] [US8] Add permission checks to AR service gRPC handlers (manage customers, create/post invoices, process receipts) in `services/ar/src/handlers/`
 - [ ] T144 [US8] Implement strong password policy validation (min length, complexity rules) in `services/identity/src/service/auth_service.rs`
-- [ ] T145 [US8] Implement configurable session timeout and token expiration management in `services/identity/src/service/auth_service.rs`
+- [ ] T145 [US8] Implement configurable idle session timeout (FR-033: UI→gateway middleware enforcement, default 30 min) and JWT token expiration management (FR-033a: access token TTL + refresh token rotation) in `services/identity/src/service/auth_service.rs` — idle timeout is distinct from token TTL
 - [ ] T146 [US8] Write RBAC integration tests (permission enforcement across GL/AP/AR, scope filtering, audit log completeness) in `services/identity/tests/integration_rbac_test.rs`
 
 ### Frontend Implementation for User Story 8
@@ -383,6 +391,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T180 [US4] Implement `GoodsReceiptService` (create against PO, confirm receipt, update PO quantities received, validate against ordered quantities) in `services/procurement/src/service/goods_receipt_service.rs`
 - [ ] T181 [US4] Implement procurement-workflow integration (requisition approval routing based on amount/category) in `services/procurement/src/service/requisition_service.rs`
 - [ ] T182 [US4] Implement 3-way match service (compare PO quantities, goods receipt quantities, and AP invoice quantities/amounts) in `services/procurement/src/service/match_service.rs`
+- [ ] T182a [US4] Add procurement gRPC client to AP service (`ProcurementMatchClient`) in `services/ap/src/clients/procurement_client.rs`
+- [ ] T182b [US2] Integrate 3-way match check into AP invoice posting: when invoice references a PO, call procurement `MatchService.ValidateMatch()` before allowing post; on failure, place invoice on HOLD (FR-019) in `services/ap/src/service/invoice_service.rs`
 - [ ] T183 [US4] Implement procurement NATS event publisher (`RequisitionApproved`, `POIssued`, `GoodsReceived`) in `services/procurement/src/events.rs`
 - [ ] T184 [US4] Implement `RequisitionService` gRPC handlers in `services/procurement/src/handlers/requisition_handler.rs`
 - [ ] T185 [P] [US4] Implement `PurchaseOrderService` gRPC handlers in `services/procurement/src/handlers/po_handler.rs`
@@ -427,7 +437,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T203 [P] [US5] Implement `CashFlowStatementService` (derive from income statement + balance sheet changes) in `services/reporting/src/service/cash_flow_service.rs`
 - [ ] T204 [US5] Implement `DashboardService` (aggregate KPIs: revenue, expenses, cash position, AR aging, AP aging via gRPC calls to GL/AP/AR) in `services/reporting/src/service/dashboard_service.rs`
 - [ ] T205 [US5] Implement `CustomReportService` (create/save/run custom reports with configurable fields, filters, groupings stored as JSON definition) in `services/reporting/src/service/custom_report_service.rs`
-- [ ] T206 [US5] Implement `ReportExportService` (PDF via `genpdf`, XLSX via `rust_xlsxwriter`, CSV export with async job queue for large datasets) in `services/reporting/src/service/export_service.rs`
+- [ ] T206 [US5] Implement `ReportExportService` (PDF via `genpdf`, XLSX via `rust_xlsxwriter`, CSV export with async job queue for large datasets) — report-level CSV is this task; list-view CSV for all data tables is cross-cutting concern (T307) in `services/reporting/src/service/export_service.rs`
 - [ ] T207 [US5] Implement `StandardReportService` gRPC handlers in `services/reporting/src/handlers/standard_handler.rs`
 - [ ] T208 [P] [US5] Implement `DashboardService` gRPC handler in `services/reporting/src/handlers/dashboard_handler.rs`
 - [ ] T209 [P] [US5] Implement `CustomReportService` gRPC handlers in `services/reporting/src/handlers/custom_handler.rs`
@@ -439,7 +449,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Frontend Implementation for User Story 5
 
 - [ ] T214 [US5] Create `web/src/hooks/useReporting.ts` with TanStack Query hooks for standard reports, dashboard, custom reports, and export API calls
-- [ ] T215 [US5] Create `web/src/pages/reporting/Dashboard.tsx` — financial dashboard with KPI cards (revenue, expenses, cash, receivables, payables), trend indicators via Recharts, alert banners
+- [ ] T215 [US5] Create `web/src/pages/reporting/Dashboard.tsx` — financial dashboard with KPI cards (revenue, expenses, cash, receivables, payables), trend indicators via Recharts, alert banners, TanStack Query `refetchInterval: 60000` for auto-refresh (FR-021), manual refresh button, data freshness timestamp display
 - [ ] T216 [P] [US5] Create `web/src/pages/reporting/StandardReports.tsx` — income statement, balance sheet, cash flow views with period selector and comparison toggle
 - [ ] T217 [P] [US5] Create `web/src/pages/reporting/CustomReports.tsx` — report builder with field selector, filter builder, grouping config, save/load reports
 - [ ] T218 [P] [US5] Create `web/src/pages/reporting/SavedReports.tsx` — saved report list, run report, export to PDF/XLSX/CSV
@@ -591,7 +601,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T283 [US11] Create asset database migrations for `fixed_assets`, `depreciation_entries`, `asset_disposals` tables in `services/asset/migrations/`
 - [ ] T284 [US11] Implement `FixedAsset` model and `AssetRepository` (CRUD, status filtering, location filtering) in `services/asset/src/repository/asset_repo.rs`
 - [ ] T285 [P] [US11] Implement `DepreciationEntry` model and `DepreciationRepository` (create entries, query by asset/period, history) in `services/asset/src/repository/depreciation_repo.rs`
-- [ ] T286 [US11] Implement `FixedAssetService` (create asset with GL account references, get, list, update details, get asset register) in `services/asset/src/service/asset_service.rs`
+- [ ] T286 [US11] Implement `FixedAssetService` (create asset with GL account references, get, list, update details, get asset register) — validate depreciation method is one of [StraightLine, DecliningBalance] on creation (FR-041) in `services/asset/src/service/asset_service.rs`
 - [ ] T287 [US11] Implement `DepreciationService` (straight-line and declining balance calculation, run for period, post depreciation GL entries via NATS, update accumulated depreciation) in `services/asset/src/service/depreciation_service.rs`
 - [ ] T288 [US11] Implement asset disposal service (calculate NBV, recognize gain/loss, post disposal GL entries via NATS, update asset status) in `services/asset/src/service/disposal_service.rs`
 - [ ] T289 [US11] Implement `FixedAssetService` gRPC handlers (CRUD, asset register, disposal) in `services/asset/src/handlers/asset_handler.rs`
