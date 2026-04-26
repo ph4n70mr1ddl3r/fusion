@@ -639,7 +639,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T300b [P] [US2] Write AP edge-case tests: vendor invoice exceeding PO amount (EC-5), concurrent invoice editing (EC-4) in `services/ap/tests/edge_case_test.rs`
 - [ ] T300c [P] [US3] Write AR edge-case tests: unapplied cash / payment not matching any invoice (spec edge 6) in `services/ar/tests/edge_case_test.rs`
 - [ ] T300d [P] [US4] Write procurement edge-case tests: partial/over-delivery against PO (spec edge 10) in `services/procurement/tests/edge_case_test.rs`
-- [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), mid-period tax rate change (spec edge 9) in `services/consolidation/tests/edge_case_test.rs`
+- [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), mid-period tax rate change (spec edge 9), currency conversion decimal precision validation (SC-007: assert all conversion results rounded to exactly 2 decimal places) in `services/consolidation/tests/edge_case_test.rs`
 - [ ] T300f [P] [US9] Write workflow edge-case tests: circular approval reference (spec edge 3), no eligible approvers (spec edge 3) in `services/workflow/tests/edge_case_test.rs`
 - [ ] T305 [P] Add responsive layout and mobile-friendly navigation in `web/src/components/Layout.tsx`
 - [ ] T306 [P] Implement optimistic updates with TanStack Query mutations for frequently modified entities (invoice posting, payment processing, approval actions)

@@ -127,6 +127,8 @@ As a group financial controller for a multi-entity organization, I need to manag
 
 ### User Story 8 - Role-Based Access & Security (Priority: P2)
 
+> **Implementation note**: Basic authentication (email/password, JWT) and role scaffolding are P1 prerequisites built in Phase 2 (Foundational). Full RBAC with granular permissions, scope-based filtering, and audit UI is P2 (Phase 6).
+
 As a system administrator, I need to define roles with specific permissions and assign users to those roles so that each user can only access the data and functions appropriate to their job responsibilities.
 
 **Why this priority**: Security and access control are fundamental to enterprise software. They must be in place before the system can be used in production with multiple users.
@@ -142,6 +144,8 @@ As a system administrator, I need to define roles with specific permissions and 
 ---
 
 ### User Story 9 - Workflow & Approval Management (Priority: P2)
+
+> **Implementation note**: Basic single-step approval routing is a P1 prerequisite built in Phase 2 (Foundational). Full multi-step workflow configuration, escalation, and delegation are P2 (Phase 7).
 
 As a business process owner, I need to configure multi-step approval workflows for transactions (journal entries, invoices, purchase orders) so that the organization maintains proper internal controls.
 
@@ -218,7 +222,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **FR-003**: System MUST enforce balanced journal entries (total debits = total credits) before allowing posting.
 - **FR-004**: System MUST support financial period open/close management with the ability to prevent postings to closed periods.
 - **FR-005**: System MUST generate a trial balance showing opening balances, period activity, and closing balances for all accounts.
-- **FR-006**: System MUST maintain a complete, immutable audit trail of all posted transactions.
+- **FR-006**: System MUST maintain a complete, immutable financial audit trail — every posted transaction can be fully traced from its source document (invoice, payment, receipt, etc.) through the corresponding GL journal entry to its impact on financial reports.
 
 **Accounts Payable**
 - **FR-007**: System MUST maintain vendor master records with contact details, payment terms, tax information, and bank details.
@@ -313,7 +317,8 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - The target users are mid-to-large enterprises that need a comprehensive cloud-based financial management system.
 - Users have stable internet connectivity as this is a cloud-hosted application.
 - The system will be delivered as a web application accessible via modern browsers (Chrome, Firefox, Safari, Edge).
-- Single sign-on (SSO) integration will be supported but standard email/password authentication will be the default.
+- Standard email/password authentication with JWT tokens is the default authentication mechanism in v1.
+- Single sign-on (SSO) integration (SAML 2.0, OIDC) is a future enhancement; the identity service architecture supports extension via pluggable authentication providers.
 - The system will be multi-tenant at the infrastructure level, with complete data isolation between organizations.
 - Mobile-responsive design is expected but native mobile applications are out of scope for the initial version.
 - Data export via CSV is supported for all data tables (reports, lists, registers) from v1.
