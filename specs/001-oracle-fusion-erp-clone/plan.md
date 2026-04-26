@@ -147,7 +147,7 @@ fusion/
 | `service-gl` | General Ledger | P1 | Chart of accounts, journal entries, period management, trial balance |
 | `service-ap` | Accounts Payable | P1 | Vendor management, invoice processing, payments, AP aging |
 | `service-ar` | Accounts Receivable | P1 | Customer management, invoicing, receipts, credit management, AR aging |
-| `service-identity` | Identity & Access | P1 | Users, roles, permissions, authentication, audit logging |
+| `service-identity` | Identity & Access | P1 | Users, roles, permissions, authentication, audit logging, tenant settings (session timeout, password policy) |
 | `service-workflow` | Workflow & Approvals | P1 | Approval rules, routing, delegation, escalation |
 | `service-notification` | Notifications | P1 | Email, in-app, push notifications |
 | `service-procurement` | Procurement | P2 | Requisitions, purchase orders, goods receipt, 3-way match |

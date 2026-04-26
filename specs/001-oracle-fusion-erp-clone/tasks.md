@@ -81,7 +81,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Identity & Access Service (Basic Authentication)
 
 - [ ] T021 Scaffold identity service structure in `services/identity/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
-- [ ] T022 Create identity database migrations for `users`, `roles`, `permissions`, `user_roles`, `refresh_tokens`, `audit_logs` tables in `services/identity/migrations/`
+- [ ] T022 Create identity database migrations for `users`, `roles`, `permissions`, `user_roles`, `refresh_tokens`, `audit_logs`, `tenant_settings` tables in `services/identity/migrations/` — `tenant_settings` stores per-tenant configuration (session timeout, password policy overrides) keyed by `tenant_id` + `setting_key`
 - [ ] T023 Write identity model tests for `User`, `Role`, `Permission` entities with validation rules in `services/identity/tests/model_test.rs`
 - [ ] T024 Implement `User` model and `UserRepository` (CRUD, find by email, active filtering) in `services/identity/src/repository/user_repo.rs`
 - [ ] T025 [P] Implement `Role` model and `RoleRepository` (CRUD, permissions by role) in `services/identity/src/repository/role_repo.rs`
@@ -93,12 +93,15 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T027 Implement `AuthenticationService` (login with Argon2 verification, JWT RS256 access token + refresh token generation, refresh flow, logout/revocation) in `services/identity/src/service/auth_service.rs`
 - [ ] T028 [P] Implement `UserService` (create with Argon2 hashing, get, list, update, deactivate) in `services/identity/src/service/user_service.rs`
 - [ ] T029 [P] Implement `RoleService` (create, get, list, assign role to user, revoke role) in `services/identity/src/service/role_service.rs`
+- [ ] T029x [P] Implement `TenantSettingsService` (get/set per-tenant configuration: session timeout, password policy) with gRPC handler in `services/identity/src/service/tenant_settings_service.rs`
 - [ ] T022a Create identity database migration for `password_reset_tokens` table (token_hash, user_id, expires_at, used_at) in `services/identity/migrations/`
-- [ ] T029a [P] Implement `PasswordResetService` (generate secure reset token with configurable expiry (default 1 hour), store hash in `password_reset_tokens` table, send email via `crates/messaging` SMTP helper) in `services/identity/src/service/reset_service.rs`
+- [ ] T029a [P] Implement `PasswordResetService` (generate secure reset token with configurable expiry (default 1 hour), store hash in `password_reset_tokens` table, publish `PasswordResetRequested` NATS event so notification service delivers the reset email) in `services/identity/src/service/reset_service.rs`
 - [ ] T029b [P] Implement password reset gRPC handlers (`RequestReset` → generate token + send email, `ConfirmReset` → validate token + update password + invalidate token) in `services/identity/src/handlers/reset_handler.rs`
 - [ ] T030 Implement identity gRPC handlers for `UserService`, `RoleService`, `AuthenticationService` in `services/identity/src/handlers/`
 - [ ] T031 Implement identity server bootstrap with health/readiness endpoints, gRPC server startup, and `crates/observability` integration (tracing + Prometheus metrics) in `services/identity/src/main.rs`
 - [ ] T032 Write identity service integration tests (registration, login, token refresh, role assignment) in `services/identity/tests/integration_test.rs`
+### Cross-Cutting Validation
+
 - [ ] T032a [P] Write multi-tenant isolation tests in `services/gateway/tests/tenant_isolation_test.rs` — authenticate as tenant A user, verify GL/AP/AR endpoints return only tenant A data; attempt to access tenant B resources by ID, verify 403 Forbidden; verify no cross-tenant data leakage in list endpoints
 
 ### API Gateway
@@ -165,7 +168,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 1
 
-- [ ] T062 [US1] Create GL database migrations for `chart_of_accounts`, `financial_periods`, `journal_entries`, `journal_entry_lines` tables in `services/gl/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `journal_entries` for optimistic locking (EC-4)
+- [ ] T062 [US1] Create GL database migrations for `chart_of_accounts`, `financial_periods`, `journal_entries`, `journal_entry_lines` tables in `services/gl/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `journal_entries` for optimistic locking (EC-4); include `created_by_user_id UUID` and `department_id UUID` columns on `journal_entries` for RBAC scope filtering (FR-031)
 - [ ] T063 [US1] Implement `ChartOfAccount` model and `AccountRepository` (CRUD, hierarchy, segment filtering) in `services/gl/src/repository/account_repo.rs`
 - [ ] T064 [P] [US1] Implement `FinancialPeriod` model and `PeriodRepository` (CRUD, find by date range, open/close) in `services/gl/src/repository/period_repo.rs`
 - [ ] T065 [P] [US1] Implement `JournalEntry` model and `JournalRepository` (CRUD, status transitions, source filtering, optimistic locking: `UPDATE ... SET version = version + 1 WHERE version = $expected_version`) in `services/gl/src/repository/journal_repo.rs`
@@ -215,7 +218,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 2
 
-- [ ] T087 [US2] Create AP database migrations for `vendors`, `ap_invoices`, `ap_invoice_lines`, `payments`, `payment_invoice_allocations` tables in `services/ap/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ap_invoices` for optimistic locking (EC-4)
+- [ ] T087 [US2] Create AP database migrations for `vendors`, `ap_invoices`, `ap_invoice_lines`, `payments`, `payment_invoice_allocations` tables in `services/ap/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ap_invoices` for optimistic locking (EC-4); include `created_by_user_id UUID` and `department_id UUID` columns on `ap_invoices` and `payments` for RBAC scope filtering (FR-031); include `payment_method VARCHAR(32) NOT NULL` column on `payments` with CHECK constraint in ('CHECK', 'WIRE_TRANSFER', 'ACH', 'CASH')
 - [ ] T088 [US2] Implement `Vendor` model and `VendorRepository` (CRUD, search by name, active filtering) in `services/ap/src/repository/vendor_repo.rs`
 - [ ] T089 [P] [US2] Implement `ApInvoice` model and `InvoiceRepository` (CRUD, status transitions, vendor filtering, date range, optimistic locking on update) in `services/ap/src/repository/invoice_repo.rs`
 - [ ] T090 [P] [US2] Implement `Payment` model and `PaymentRepository` (CRUD, batch operations, vendor filtering) in `services/ap/src/repository/payment_repo.rs`
@@ -264,7 +267,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 3
 
-- [ ] T111 [US3] Create AR database migrations for `customers`, `ar_invoices`, `ar_invoice_lines`, `receipts`, `receipt_invoice_allocations` tables in `services/ar/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ar_invoices` and `receipts` for optimistic locking (EC-4)
+- [ ] T111 [US3] Create AR database migrations for `customers`, `ar_invoices`, `ar_invoice_lines`, `receipts`, `receipt_invoice_allocations` tables in `services/ar/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ar_invoices` and `receipts` for optimistic locking (EC-4); include `created_by_user_id UUID` and `department_id UUID` columns on `ar_invoices` and `receipts` for RBAC scope filtering (FR-031)
 - [ ] T112 [US3] Implement `Customer` model and `CustomerRepository` (CRUD, credit balance tracking, search by name, active filtering) in `services/ar/src/repository/customer_repo.rs`
 - [ ] T113 [P] [US3] Implement `ArInvoice` model and `InvoiceRepository` (CRUD, status transitions, customer filtering, date range, optimistic locking on update) in `services/ar/src/repository/invoice_repo.rs`
 - [ ] T114 [P] [US3] Implement `Receipt` model and `ReceiptRepository` (CRUD, matching, unapplied amount tracking) in `services/ar/src/repository/receipt_repo.rs`
@@ -444,8 +447,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T200 [US5] Implement gRPC client wrappers for GL, AP, AR services (all clients MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/reporting/src/clients/` (GL client for account balances, AP client for payables, AR client for receivables)
 - [ ] T201 [US5] Implement `IncomeStatementService` (aggregate GL revenue/expense accounts by period, support comparison periods) in `services/reporting/src/service/income_statement_service.rs`
 - [ ] T202 [P] [US5] Implement `BalanceSheetService` (aggregate GL asset/liability/equity accounts as of date, verify balancing) in `services/reporting/src/service/balance_sheet_service.rs`
-- [ ] T203 [P] [US5] Implement `CashFlowStatementService` (derive from income statement + balance sheet changes) in `services/reporting/src/service/cash_flow_service.rs`
-- [ ] T204 [US5] Implement `DashboardService` (aggregate KPIs: revenue, expenses, cash position, AR aging, AP aging via gRPC calls to GL/AP/AR; include response timestamp so frontend can display data freshness; backend MUST NOT cache KPI data longer than 55 seconds to satisfy FR-021 60-second freshness requirement) in `services/reporting/src/service/dashboard_service.rs`
+- [ ] T203 [P] [US5] Implement `CashFlowStatementService` (indirect method: reconcile net income to operating cash flows using balance sheet changes, plus investing/financing activities from GL account classification) in `services/reporting/src/service/cash_flow_service.rs`
+- [ ] T204 [US5] Implement `DashboardService` (aggregate KPIs: revenue, expenses, cash position, AR aging, AP aging via gRPC calls to GL/AP/AR; include response timestamp so frontend can display data freshness; backend MUST NOT cache KPI data longer than 25 seconds to satisfy FR-021 60-second freshness requirement when combined with 30-second frontend poll interval) in `services/reporting/src/service/dashboard_service.rs`
 - [ ] T205 [US5] Implement `CustomReportService` (create/save/run custom reports with configurable fields, filters, groupings stored as JSON definition) in `services/reporting/src/service/custom_report_service.rs`
 - [ ] T206 [US5] Implement `ReportExportService` (PDF via `genpdf`, XLSX via `rust_xlsxwriter`, CSV export with async job queue for large datasets) — report-level CSV is this task; list-view CSV for all data tables is cross-cutting concern (T307) in `services/reporting/src/service/export_service.rs`
 - [ ] T207 [US5] Implement `StandardReportService` gRPC handlers in `services/reporting/src/handlers/standard_handler.rs`
@@ -459,7 +462,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Frontend Implementation for User Story 5
 
 - [ ] T214 [US5] Create `web/src/hooks/useReporting.ts` with TanStack Query hooks for standard reports, dashboard, custom reports, and export API calls
-- [ ] T215 [US5] Create `web/src/pages/reporting/Dashboard.tsx` — financial dashboard with KPI cards (revenue, expenses, cash, receivables, payables), trend indicators via Recharts, alert banners, TanStack Query `refetchInterval: 60000` for auto-refresh (FR-021), manual refresh button, data freshness timestamp display
+- [ ] T215 [US5] Create `web/src/pages/reporting/Dashboard.tsx` — financial dashboard with KPI cards (revenue, expenses, cash, receivables, payables), trend indicators via Recharts, alert banners, TanStack Query `refetchInterval: 30000` for auto-refresh (FR-021: combined with 25s backend cache, worst-case displayed data age ≤55s), manual refresh button, data freshness timestamp display
 - [ ] T216 [P] [US5] Create `web/src/pages/reporting/StandardReports.tsx` — income statement, balance sheet, cash flow views with period selector and comparison toggle
 - [ ] T217 [P] [US5] Create `web/src/pages/reporting/CustomReports.tsx` — report builder with field selector, filter builder, grouping config, save/load reports
 - [ ] T218 [P] [US5] Create `web/src/pages/reporting/SavedReports.tsx` — saved report list, run report, export to PDF/XLSX/CSV
@@ -663,8 +666,12 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T300a [P] [US1] Write GL edge-case tests: posting to closed period (EC-1), concurrent journal entry editing (EC-4), budget fully consumed posting (EC-7) in `services/gl/tests/edge_case_test.rs`
 - [ ] T300b [P] [US2] Write AP edge-case tests: vendor invoice exceeding PO amount (EC-5), concurrent invoice editing (EC-4) in `services/ap/tests/edge_case_test.rs`
 - [ ] T300b2 [P] [US2] Write AP currency validation edge-case tests: foreign currency invoice with no exchange rate returns error, stale rate (>30 days) triggers warning, in `services/ap/tests/currency_test.rs`
+- [ ] T300b3 [P] [US2] Implement stale-rate warning response in AP invoice service: when exchange rate is >30 days old, return a `StaleRateWarning` in the gRPC response with rate age and confirmation token; require client to re-submit with confirmation token to proceed with posting in `services/ap/src/service/invoice_service.rs`
+- [ ] T300b4 [P] [US2] Add stale-rate confirmation dialog to AP invoice form: when backend returns `StaleRateWarning`, show modal with rate age and accept/cancel actions; re-submit with confirmation token on accept in `web/src/pages/ap/Invoices.tsx`
 - [ ] T300c [P] [US3] Write AR edge-case tests: unapplied cash / payment not matching any invoice (spec edge 6) in `services/ar/tests/edge_case_test.rs`
 - [ ] T300c2 [P] [US3] Write AR currency validation edge-case tests: foreign currency invoice with no exchange rate returns error, stale rate warning, in `services/ar/tests/currency_test.rs`
+- [ ] T300c3 [P] [US3] Implement stale-rate warning response in AR invoice service: same pattern as T300b3 — return `StaleRateWarning` with rate age and confirmation token in `services/ar/src/service/invoice_service.rs`
+- [ ] T300c4 [P] [US3] Add stale-rate confirmation dialog to AR invoice form in `web/src/pages/ar/Invoices.tsx`
 - [ ] T300d [P] [US4] Write procurement edge-case tests: partial/over-delivery against PO (spec edge 10) in `services/procurement/tests/edge_case_test.rs`
 - [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), currency conversion decimal precision validation (SC-007: assert all conversion results rounded to exactly 2 decimal places) in `services/consolidation/tests/edge_case_test.rs`
 - [ ] T300f [P] [US9] Write workflow edge-case tests: circular approval reference (spec edge 3), no eligible approvers (spec edge 3) in `services/workflow/tests/edge_case_test.rs`
