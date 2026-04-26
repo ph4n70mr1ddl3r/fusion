@@ -23,7 +23,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 **Project Type**: Web service (microservices) + single-page web application
 **Performance Goals**: 100 concurrent users, <3s response time, <10s report generation for 100K transactions, approval notifications within 5s
 **Constraints**: Multi-tenant data isolation, 100% audit trail integrity, no manual GL corrections for currency
-**Scale/Scope**: 12 domain services + 1 gateway + 10 shared crates + 1 frontend SPA; ~30 endpoints per service; 14 key entities (see spec.md Key Entities section)
+**Scale/Scope**: 12 domain services + 1 gateway + 10 shared crates + 1 frontend SPA; ~30 endpoints per service; 17 key entities (see spec.md Key Entities section)
 
 ## Constitution Check
 

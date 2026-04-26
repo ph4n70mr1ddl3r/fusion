@@ -85,6 +85,10 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T023 Write identity model tests for `User`, `Role`, `Permission` entities with validation rules in `services/identity/tests/model_test.rs`
 - [ ] T024 Implement `User` model and `UserRepository` (CRUD, find by email, active filtering) in `services/identity/src/repository/user_repo.rs`
 - [ ] T025 [P] Implement `Role` model and `RoleRepository` (CRUD, permissions by role) in `services/identity/src/repository/role_repo.rs`
+- [ ] T025a [P] Create identity database migration for `departments` table (id, tenant_id, code, name, parent_department_id, created_at, updated_at) in `services/identity/migrations/`
+- [ ] T025b [P] Implement `Department` model and `DepartmentRepository` (CRUD, hierarchy) in `services/identity/src/repository/department_repo.rs`
+- [ ] T025c [P] Add `department_id` column to `users` table migration in `services/identity/migrations/`
+- [ ] T025d [P] Implement `DepartmentService` (create, get, list, assign users) in `services/identity/src/service/department_service.rs`
 - [ ] T026 [P] Implement `RefreshTokenRepository` (create, find by hash, revoke) in `services/identity/src/repository/token_repo.rs`
 - [ ] T027 Implement `AuthenticationService` (login with Argon2 verification, JWT RS256 access token + refresh token generation, refresh flow, logout/revocation) in `services/identity/src/service/auth_service.rs`
 - [ ] T028 [P] Implement `UserService` (create with Argon2 hashing, get, list, update, deactivate) in `services/identity/src/service/user_service.rs`
@@ -173,7 +177,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T069a [US1] Implement `AuditTrailService` (trace transaction lineage: given a source document ID, return the chain from source → GL journal entry → financial report impact; given a GL entry, return the source document) in `services/gl/src/service/audit_trail_service.rs`
 - [ ] T069b [P] [US1] Implement `AuditTrailService` gRPC handler (`TraceTransaction`, `GetSourceDocument`) in `services/gl/src/handlers/audit_trail_handler.rs`
 - [ ] T070 [US1] Implement GL NATS event publisher for `JournalEntryPosted`, `PeriodClosed` events in `services/gl/src/events.rs`
-- [ ] T071 [US1] Implement GL NATS subscriber for receiving AP/AR invoice posting requests in `services/gl/src/subscriber.rs`
+- [ ] T071 [US1] Implement GL NATS subscriber for receiving AP/AR invoice posting requests (all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/gl/src/subscriber.rs`
 - [ ] T072 [US1] Implement `ChartOfAccountsService` gRPC handlers in `services/gl/src/handlers/account_handler.rs`
 - [ ] T073 [P] [US1] Implement `JournalEntryService` gRPC handlers in `services/gl/src/handlers/journal_handler.rs`
 - [ ] T074 [P] [US1] Implement `FinancialPeriodService` gRPC handlers in `services/gl/src/handlers/period_handler.rs`
@@ -222,7 +226,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T094 [US2] Implement `ApAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ap/src/service/aging_service.rs`
 - [ ] T094a [US2] Implement `BankReconciliationService` (import bank statement CSV, match statement lines to system payments by amount/date/reference, allow manual matching for unmatched items, mark reconciled) in `services/ap/src/service/reconciliation_service.rs`
 - [ ] T094b [P] [US2] Implement `BankReconciliationService` gRPC handler in `services/ap/src/handlers/reconciliation_handler.rs`
-- [ ] T095 [US2] Implement AP NATS event publisher (`InvoicePosted`, `PaymentProcessed`) and subscriber (GL confirmation, workflow approval requests) in `services/ap/src/events.rs`
+- [ ] T095 [US2] Implement AP NATS event publisher (`InvoicePosted`, `PaymentProcessed`) and subscriber (GL confirmation, workflow approval requests — all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/ap/src/events.rs`
 - [ ] T096 [US2] Implement `VendorService` gRPC handlers in `services/ap/src/handlers/vendor_handler.rs`
 - [ ] T097 [P] [US2] Implement `ApInvoiceService` gRPC handlers (including hold resolution: list holds, release, reject) in `services/ap/src/handlers/invoice_handler.rs`
 - [ ] T098 [P] [US2] Implement `PaymentService` gRPC handlers in `services/ap/src/handlers/payment_handler.rs`
@@ -269,7 +273,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T117 [US3] Implement `ReceiptService` (create with optional pre-match, match/unmatch to invoices, update unapplied amount, GL entry via NATS) in `services/ar/src/service/receipt_service.rs`
 - [ ] T118 [US3] Implement `ArAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ar/src/service/aging_service.rs`
 - [ ] T119 [US3] Implement credit limit enforcement service (check outstanding balance, place customer on hold, emit credit hold notification event) in `services/ar/src/service/credit_service.rs`
-- [ ] T120 [US3] Implement AR NATS event publisher (`InvoicePosted`, `ReceiptProcessed`, `CreditHoldTriggered`) and subscriber in `services/ar/src/events.rs`
+- [ ] T120 [US3] Implement AR NATS event publisher (`InvoicePosted`, `ReceiptProcessed`, `CreditHoldTriggered`) and subscriber (all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/ar/src/events.rs`
 - [ ] T121 [US3] Implement `CustomerService` gRPC handlers in `services/ar/src/handlers/customer_handler.rs`
 - [ ] T122 [P] [US3] Implement `ArInvoiceService` gRPC handlers in `services/ar/src/handlers/invoice_handler.rs`
 - [ ] T123 [P] [US3] Implement `ReceiptService` gRPC handlers in `services/ar/src/handlers/receipt_handler.rs`
@@ -310,7 +314,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T136 [US8] Implement permission enforcement middleware for gRPC handlers (check role permissions from JWT claims before executing RPCs) in `crates/auth/src/permission.rs`
 - [ ] T137 [US8] Implement scope-based data filtering (`OWN`, `DEPARTMENT`, `ALL`) at repository layer in `crates/db/src/scoping.rs`
 - [ ] T138 [US8] Implement `AuditLogService` with append-only repository (no UPDATE/DELETE allowed) and query filtering in `services/identity/src/service/audit_service.rs`
-- [ ] T139 [US8] Implement NATS audit event subscriber that captures domain events from all services into the audit log in `services/identity/src/subscriber.rs`
+- [ ] T139 [US8] Implement NATS audit event subscriber that captures domain events from all services into the audit log (all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/identity/src/subscriber.rs`
 - [ ] T140 [US8] Implement `AuditLogService` gRPC handlers (get, list with filtering by user/module/entity/date) in `services/identity/src/handlers/audit_handler.rs`
 - [ ] T141 [US8] Add permission checks to GL service gRPC handlers (create/post/reverse journal entries, manage accounts, close periods) in `services/gl/src/handlers/`
 - [ ] T142 [P] [US8] Add permission checks to AP service gRPC handlers (manage vendors, create/approve/post invoices, process payments) in `services/ap/src/handlers/`
@@ -353,9 +357,9 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T158 [US9] Implement approval delegation (transfer pending approval to another user, record in audit trail) in `services/workflow/src/service/delegation_service.rs`
 - [ ] T159 [US9] Implement `ApprovalWorkflowService` gRPC handlers (full CRUD, activate/deactivate) in `services/workflow/src/handlers/workflow_handler.rs`
 - [ ] T160 [US9] Implement `ApprovalInstanceService` gRPC handlers (submit, approve, reject, delegate, history) in `services/workflow/src/handlers/instance_handler.rs`
-- [ ] T161 [US9] Implement workflow-GL integration (journal entries exceeding threshold route to approval before posting) in `services/gl/src/service/journal_service.rs`
-- [ ] T162 [P] [US9] Implement workflow-AP integration (invoices exceeding threshold route to approval before posting) in `services/ap/src/service/invoice_service.rs`
-- [ ] T163 [P] [US9] Implement workflow-AR integration (credit limit override approval) in `services/ar/src/service/credit_service.rs`
+- [ ] T161 [US9] Implement workflow-GL integration (journal entries exceeding threshold route to approval before posting via gRPC with `crates/resilience` circuit breaker) in `services/gl/src/service/journal_service.rs`
+- [ ] T162 [P] [US9] Implement workflow-AP integration (invoices exceeding threshold route to approval before posting via gRPC with `crates/resilience` circuit breaker) in `services/ap/src/service/invoice_service.rs`
+- [ ] T163 [P] [US9] Implement workflow-AR integration (credit limit override approval via gRPC with `crates/resilience` circuit breaker) in `services/ar/src/service/credit_service.rs`
 - [ ] T164 [US9] Implement workflow-notification integration (notify approvers on submission, escalation, completion) in `services/workflow/src/events.rs`
 - [ ] T165 [US9] Write end-to-end workflow integration tests (configure → submit → approve → verify posting → test escalation → test delegation) in `services/workflow/tests/integration_test.rs`
 - [ ] T165a [US9] Write notification delivery latency benchmark test: submit approval transaction → measure time to notification delivery → assert < 5 seconds (SC-005) in `services/notification/tests/latency_test.rs`
@@ -397,7 +401,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T180 [US4] Implement `GoodsReceiptService` (create against PO, confirm receipt, update PO quantities received, validate against ordered quantities) in `services/procurement/src/service/goods_receipt_service.rs`
 - [ ] T181 [US4] Implement procurement-workflow integration (requisition approval routing based on amount/category) in `services/procurement/src/service/requisition_service.rs`
 - [ ] T182 [US4] Implement 3-way match service (compare PO quantities, goods receipt quantities, and AP invoice quantities/amounts) in `services/procurement/src/service/match_service.rs`
-- [ ] T182a [US4] Add procurement gRPC client to AP service (`ProcurementMatchClient`) in `services/ap/src/clients/procurement_client.rs`
+- [ ] T182a [US4] Add procurement gRPC client to AP service (`ProcurementMatchClient` with `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/ap/src/clients/procurement_client.rs`
 - [ ] T182b [US2] Integrate 3-way match check into AP invoice posting: when invoice references a PO, call procurement `MatchService.ValidateMatch()` before allowing post; on failure, place invoice on HOLD (FR-019) in `services/ap/src/service/invoice_service.rs`
 - [ ] T183 [US4] Implement procurement NATS event publisher (`RequisitionApproved`, `POIssued`, `GoodsReceived`) in `services/procurement/src/events.rs`
 - [ ] T184 [US4] Implement `RequisitionService` gRPC handlers in `services/procurement/src/handlers/requisition_handler.rs`
@@ -437,7 +441,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T197 [US5] Scaffold reporting service structure in `services/reporting/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
 - [ ] T198 [US5] Create reporting database migration for `saved_reports` table in `services/reporting/migrations/`
 - [ ] T199 [US5] Implement `SavedReportRepository` (CRUD, filtering by type and creator) in `services/reporting/src/repository/report_repo.rs`
-- [ ] T200 [US5] Implement gRPC client wrappers for GL, AP, AR services in `services/reporting/src/clients/` (GL client for account balances, AP client for payables, AR client for receivables)
+- [ ] T200 [US5] Implement gRPC client wrappers for GL, AP, AR services (all clients MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/reporting/src/clients/` (GL client for account balances, AP client for payables, AR client for receivables)
 - [ ] T201 [US5] Implement `IncomeStatementService` (aggregate GL revenue/expense accounts by period, support comparison periods) in `services/reporting/src/service/income_statement_service.rs`
 - [ ] T202 [P] [US5] Implement `BalanceSheetService` (aggregate GL asset/liability/equity accounts as of date, verify balancing) in `services/reporting/src/service/balance_sheet_service.rs`
 - [ ] T203 [P] [US5] Implement `CashFlowStatementService` (derive from income statement + balance sheet changes) in `services/reporting/src/service/cash_flow_service.rs`
@@ -484,7 +488,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T223 [US6] Create budget database migrations for `budgets`, `budget_lines` tables in `services/budget/migrations/`
 - [ ] T224 [US6] Implement `Budget` model and `BudgetRepository` (CRUD, status transitions, department filtering) in `services/budget/src/repository/budget_repo.rs`
 - [ ] T225 [US6] Implement `BudgetService` (create with lines, approve, upload from CSV/Excel file, calculate totals) in `services/budget/src/service/budget_service.rs`
-- [ ] T226 [US6] Implement budget GL event subscriber (update `actual_amount` on budget lines when GL journal entries are posted) in `services/budget/src/subscriber.rs`
+- [ ] T226 [US6] Implement budget GL event subscriber (update `actual_amount` on budget lines when GL journal entries are posted; all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/budget/src/subscriber.rs`
 - [ ] T227 [US6] Implement `BudgetAnalysisService` (budget-vs-actual report with variance calculation, variance threshold flagging, forecast projection) in `services/budget/src/service/analysis_service.rs`
 - [ ] T228 [US6] Implement `BudgetService` gRPC handlers in `services/budget/src/handlers/budget_handler.rs`
 - [ ] T229 [P] [US6] Implement `BudgetAnalysisService` gRPC handlers in `services/budget/src/handlers/analysis_handler.rs`
@@ -568,7 +572,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T265 [P] [US10] Implement `TaxTransaction` model and `TaxTransactionRepository` (create, query by period/jurisdiction) in `services/tax/src/repository/transaction_repo.rs`
 - [ ] T266 [US10] Implement `TaxRateService` (create, get, list, update with effective date management) in `services/tax/src/service/rate_service.rs`
 - [ ] T267 [US10] Implement `TaxCalculationService` (lookup rate by code and effective date, calculate tax amount, create tax transaction record) in `services/tax/src/service/calculation_service.rs`
-- [ ] T268 [US10] Implement tax NATS subscriber (listen for AP/AR invoice posted events, auto-calculate and record tax transactions) in `services/tax/src/subscriber.rs`
+- [ ] T268 [US10] Implement tax NATS subscriber (listen for AP/AR invoice posted events, auto-calculate and record tax transactions; all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/tax/src/subscriber.rs`
 - [ ] T269 [US10] Implement `TaxReportService` (aggregate tax collected/owed by jurisdiction, category, and period) in `services/tax/src/service/report_service.rs`
 - [ ] T270 [US10] Implement `TaxRateService` gRPC handlers in `services/tax/src/handlers/rate_handler.rs`
 - [ ] T271 [P] [US10] Implement `TaxCalculationService` gRPC handler in `services/tax/src/handlers/calculation_handler.rs`
@@ -612,7 +616,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T288 [US11] Implement asset disposal service (calculate NBV, recognize gain/loss, post disposal GL entries via NATS, update asset status) in `services/asset/src/service/disposal_service.rs`
 - [ ] T289 [US11] Implement `FixedAssetService` gRPC handlers (CRUD, asset register, disposal) in `services/asset/src/handlers/asset_handler.rs`
 - [ ] T290 [P] [US11] Implement `DepreciationService` gRPC handlers (run depreciation, get history) in `services/asset/src/handlers/depreciation_handler.rs`
-- [ ] T291 [US11] Implement asset NATS event publisher (`AssetAcquired`, `DepreciationPosted`, `AssetDisposed`) in `services/asset/src/events.rs`
+- [ ] T291 [US11] Implement asset NATS event publisher (`AssetAcquired`, `DepreciationPosted`, `AssetDisposed` — all outbound gRPC calls MUST use `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/asset/src/events.rs`
 - [ ] T292 [US11] Implement asset server bootstrap with gRPC + HTTP health and NATS in `services/asset/src/main.rs`
 - [ ] T293 [US11] Write asset integration tests (asset creation with GL posting, depreciation across periods, disposal with gain/loss, asset register accuracy) in `services/asset/tests/integration_test.rs`
 - [ ] T294 [US11] Add asset REST routes to gateway proxy in `services/gateway/src/routes/asset.rs`
@@ -668,6 +672,10 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T305 [P] Add responsive layout and mobile-friendly navigation in `web/src/components/Layout.tsx`
 - [ ] T306 [P] Implement optimistic updates with TanStack Query mutations for frequently modified entities (invoice posting, payment processing, approval actions)
 - [ ] T307 [P] Add CSV/Excel export functionality to all data tables using `web/src/utils/export.ts`
+- [ ] T307a [P] Write caching integration tests: verify moka cache hit/miss behavior, verify NATS cache invalidation triggers eviction in `services/gl/tests/cache_test.rs`
+- [ ] T307b [P] Write resilience configuration tests: verify circuit breaker opens after failure threshold, verify retry policy backoff, verify per-service tuning in `crates/resilience/tests/integration_test.rs`
+- [ ] T307c [P] Write optimistic update tests: verify TanStack Query mutation rollback on API error in `web/src/hooks/__tests__/optimistic.test.ts`
+- [ ] T307d [P] Write CSV export tests: verify exported data matches displayed table, verify UTF-8 encoding, verify special characters in `web/src/utils/__tests__/export.test.ts`
 - [ ] T308 Run quickstart.md validation — verify all setup steps, build commands, test commands, and service startup work as documented
 - [ ] T308a Write performance benchmark suite in `tests/perf/`:
   - SC-002: 100 concurrent users submitting transactions, 95th percentile response time < 3s

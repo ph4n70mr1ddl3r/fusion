@@ -27,7 +27,7 @@ As a financial controller, I need to manage my organization's general ledger inc
 
 ### User Story 2 - Accounts Payable (Priority: P1)
 
-As an accounts payable clerk, I need to manage supplier invoices, process payments, and maintain vendor records so that the organization pays its obligations accurately and on time.
+As an accounts payable clerk, I need to manage vendor invoices, process payments, and maintain vendor records so that the organization pays its obligations accurately and on time.
 
 **Why this priority**: Accounts payable is a core operational finance function that every business needs. Combined with General Ledger, it forms the minimum viable ERP for most organizations.
 
@@ -35,7 +35,7 @@ As an accounts payable clerk, I need to manage supplier invoices, process paymen
 
 **Acceptance Scenarios**:
 
-1. **Given** a vendor exists in the system, **When** a clerk enters a supplier invoice, **Then** the invoice is recorded with all details (vendor, amounts, due date, line items) and routed for approval based on amount thresholds.
+1. **Given** a vendor exists in the system, **When** a clerk enters a vendor invoice, **Then** the invoice is recorded with all details (vendor, amounts, due date, line items) and routed for approval based on amount thresholds.
 2. **Given** approved invoices are pending payment, **When** the clerk initiates a payment batch, **Then** the system groups invoices by payment method, generates payment instructions, and creates the corresponding GL entries.
 3. **Given** a payment has been issued, **When** the vendor's bank confirms receipt, **Then** the clerk records the payment reconciliation and the invoice is marked as fully paid.
 4. **Given** an invoice is approaching or past its due date, **When** the aging report is run, **Then** the system accurately categorizes payables into aging buckets (current, 30, 60, 90+ days).
@@ -61,7 +61,7 @@ As an accounts receivable clerk, I need to create customer invoices, record paym
 
 ### User Story 4 - Procurement & Purchasing (Priority: P2)
 
-As a purchasing agent, I need to create purchase requisitions, convert them to purchase orders, and manage supplier relationships so that the organization procures goods and services efficiently.
+As a purchasing agent, I need to create purchase requisitions, convert them to purchase orders, and manage vendor relationships so that the organization procures goods and services efficiently.
 
 **Why this priority**: Procurement extends the ERP into the supply chain, connecting purchasing to payables and inventory. It's the next logical module after core financials.
 
@@ -70,7 +70,7 @@ As a purchasing agent, I need to create purchase requisitions, convert them to p
 **Acceptance Scenarios**:
 
 1. **Given** an employee needs goods or services, **When** they submit a purchase requisition, **Then** the requisition is routed through the configured approval hierarchy based on amount and category.
-2. **Given** an approved requisition exists, **When** the purchasing agent converts it to a purchase order, **Then** a PO is generated with correct items, quantities, pricing, and supplier details.
+2. **Given** an approved requisition exists, **When** the purchasing agent converts it to a purchase order, **Then** a PO is generated with correct items, quantities, pricing, and vendor details.
 3. **Given** goods have been ordered, **When** the receiving team records receipt of goods, **Then** the system updates the PO status, records the goods receipt with quantity verification, and makes the invoice available for AP matching.
 4. **Given** a PO has partial receipts, **When** the purchasing agent reviews open POs, **Then** the system shows remaining quantities and expected delivery dates.
 
@@ -171,7 +171,7 @@ As a tax accountant, I need the system to automatically calculate taxes on trans
 
 **Acceptance Scenarios**:
 
-1. **Given** tax rates are configured for a jurisdiction, **When** a taxable invoice is entered, **Then** the system automatically calculates the correct tax amount based on the customer/supplier location and item tax category.
+1. **Given** tax rates are configured for a jurisdiction, **When** a taxable invoice is entered, **Then** the system automatically calculates the correct tax amount based on the customer/vendor location and item tax category.
 2. **Given** taxable transactions exist for a period, **When** the tax accountant runs a tax report, **Then** the system provides a detailed breakdown of tax collected and owed by jurisdiction and tax type.
 
 ---
@@ -239,7 +239,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 
 **Procurement**
 - **FR-016**: System MUST support purchase requisition creation, editing, and submission for approval.
-- **FR-017**: System MUST allow conversion of approved requisitions to purchase orders with supplier assignment and pricing.
+- **FR-017**: System MUST allow conversion of approved requisitions to purchase orders with vendor assignment and pricing.
 - **FR-018**: System MUST support goods receipt recording against purchase orders with quantity verification.
 - **FR-019**: *(Cross-cutting: Procurement + AP)* System MUST support three-way matching (PO, goods receipt, invoice) in the accounts payable process. When a match fails (quantity or price variance exceeds a configurable tolerance threshold, default 5%), the system MUST place the invoice on hold and notify the AP clerk for manual review.
 
@@ -286,7 +286,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 
 - **Chart of Accounts**: Multi-segment account structure defining the organization's financial reporting framework. Key attributes include account code, name, type (asset, liability, equity, revenue, expense), segment values, and active/inactive status.
 - **Journal Entry**: A financial transaction recording debits and credits to accounts. Key attributes include entry number, date, period, lines (account, debit amount, credit amount, description), status (draft, posted, reversed), and created-by user.
-- **Vendor**: A supplier of goods or services. Key attributes include vendor code, name, address, payment terms, tax ID, bank details, and status.
+- **Vendor**: A vendor of goods or services. Key attributes include vendor code, name, address, payment terms, tax ID, bank details, and status.
 - **Customer**: A buyer of goods or services. Key attributes include customer code, name, address, payment terms, credit limit, tax ID, and status.
 - **Invoice (AP/AR)**: A document recording a financial obligation (AP) or revenue claim (AR). Key attributes include invoice number, date, due date, vendor/customer, line items (description, quantity, unit price, tax), totals, payment status, and GL impact.
 - **Purchase Order**: A commitment to purchase goods or services from a vendor. Key attributes include PO number, date, vendor, line items (item, quantity, price), delivery schedule, status, and linked requisition.
@@ -300,6 +300,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **Tax Rate**: A percentage applied to taxable transactions. Key attributes include tax code, jurisdiction, rate percentage, effective dates, and applicable item categories.
 - **Notification**: A system message delivered to a user. Key attributes include notification ID, recipient user ID, type (approval, system, alert), title, body, reference entity (type + ID), read status, and created timestamp.
 - **Consolidation Run**: A record of a financial consolidation execution. Key attributes include run ID, reporting period, parent entity, included subsidiary IDs, exchange rates used, intercompany eliminations applied, run status, and completed timestamp.
+- **Department**: An organizational unit for scoping data access and reporting. Key attributes include department code, name, parent department (for hierarchy), and assigned users.
 
 ## Success Criteria *(mandatory)*
 
