@@ -188,16 +188,25 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 
 ### Edge Cases
 
-- What happens when a user tries to post a journal entry to a closed financial period?
-- How does the system handle currency conversion when exchange rates are missing or stale?
-- What happens if an approval workflow has a circular reference or no eligible approvers?
-- How does the system behave when two users simultaneously edit the same invoice or journal entry?
-- What happens when a vendor invoice amount exceeds the corresponding purchase order amount?
-- How does the system handle a customer payment that doesn't match any open invoice (unapplied cash)?
-- What happens when a budget has been fully consumed and a user attempts to post an additional expense?
-- How does consolidation handle intercompany transactions where exchange rates differ between entities?
-- What happens when a tax rate changes mid-period for a jurisdiction?
-- How does the system handle partial receipt of goods against a purchase order (over-delivery or under-delivery)?
+1. **Posting to closed period**: Given a financial period is closed, When a user submits a journal entry to that period, Then the system rejects the entry with error "Cannot post to closed period {period}" and the entry remains in DRAFT status.
+
+2. **Missing or stale exchange rates**: Given a foreign currency transaction is entered, When no exchange rate exists for the currency pair and transaction date, Then the system blocks the transaction with error "No exchange rate found for {currency} on {date}" and alerts the finance team. Stale rates (>30 days old without update) trigger a warning but allow posting with user confirmation.
+
+3. **Circular or orphaned approval workflows**: Given an approval workflow references itself as a step or no approver matches the conditions, When a transaction is submitted for approval, Then the system detects the issue at workflow configuration time (for circular refs) or at submission time (for no eligible approvers), returns a descriptive error, and logs the event for administrator review.
+
+4. **Concurrent editing conflict**: Given two users edit the same invoice or journal entry simultaneously, When the second user saves their changes, Then the system detects the version conflict (optimistic locking via version column), rejects the second save with error "This record was modified by another user. Please refresh and retry", and preserves the first user's changes.
+
+5. **Vendor invoice exceeds PO amount**: Given a vendor invoice is matched against a purchase order, When the invoice amount exceeds the PO amount by more than the configured tolerance (default 5%), Then the system places the invoice on HOLD with reason "Invoice exceeds PO amount by {variance}%", notifies the AP clerk, and requires manual review and explicit release or rejection.
+
+6. **Unapplied cash (payment matches no invoice)**: Given a customer payment is received, When the payment amount does not match any open invoice, Then the system records the receipt as "Unapplied" with full amount unapplied, makes it available for later manual matching, and alerts the AR clerk.
+
+7. **Budget overrun**: Given a budget line has been fully consumed, When a user attempts to post an additional expense to that budget account, Then the system posts the transaction (does not block) but flags a budget variance alert and notifies the budget manager. Budget enforcement is advisory (warn, not block) in v1.
+
+8. **Intercompany exchange rate differences**: Given consolidation is run across entities with different exchange rates for intercompany transactions, When rates differ between the two entities' books, Then the system uses the selling entity's rate for elimination and posts any translation difference to a consolidated adjustments account.
+
+9. **Mid-period tax rate change**: Given a tax rate changes for a jurisdiction mid-period, When the new rate takes effect, Then transactions before the effective date use the old rate and transactions on/after use the new rate. The tax report displays both rates separately within the same period.
+
+10. **Partial/over-delivery against PO**: Given goods are received against a PO, When the received quantity is less than ordered, the PO line remains open with remaining quantity. When received quantity exceeds ordered by more than the tolerance (default 5%), the system rejects the excess with error and requires a PO amendment before accepting the over-delivery.
 
 ## Requirements *(mandatory)*
 
@@ -307,7 +316,9 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - Single sign-on (SSO) integration will be supported but standard email/password authentication will be the default.
 - The system will be multi-tenant at the infrastructure level, with complete data isolation between organizations.
 - Mobile-responsive design is expected but native mobile applications are out of scope for the initial version.
-- Data import/export via standard file formats (CSV, Excel) is expected for all master data and transaction types.
+- Data export via CSV is supported for all data tables (reports, lists, registers) from v1.
+- Data import via CSV/Excel file upload is supported for budget amounts (FR-024) and chart of accounts initialization in v1.
+- Bulk import for other master data (vendors, customers, journal entries) and transaction types is deferred to a future enhancement, reducing v1 scope while the manual entry workflows cover core use cases.
 - The system will support a default set of languages and localization for English-speaking markets initially, with extensibility for additional locales.
 - Integration with external systems (banking, tax authorities) will be via file-based exchange initially, with real-time API integration as a future enhancement.
 - Regulatory compliance frameworks (SOX, IFRS, GAAP) are supported through the system's reporting and audit capabilities but legal certification is out of scope.

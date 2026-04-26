@@ -55,7 +55,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T010 [P] Implement `crates/error/` with unified error types, API error mapping, and `tonic::Status` conversion for gRPC handlers
 - [ ] T011 [P] Implement `crates/messaging/` with NATS JetStream publisher/subscriber abstraction using `async-nats` crate
 - [ ] T011a [P] Implement `crates/resilience/` shared crate with circuit breaker pattern (via `tower`), configurable retry policies, and gRPC client interceptor — all inter-service calls MUST use this interceptor for day-one reliability (Constitution Principle V)
-- [ ] T012 [P] Implement `crates/testing/` with test fixtures, mock gRPC services, DB seeders, and `TestDb` helper for isolated test databases
+- [ ] T012 [P] Implement `crates/testing/` with test fixtures, mock gRPC services, DB seeders, and `TestDb` helper for isolated test databases with tenant context seeding (create test tenants with separate data sets)
 - [ ] T013 [P] Configure CI pipeline in `.github/workflows/ci.yml` with cargo build, cargo nextest, clippy, fmt check, and cargo audit
 - [ ] T014 [P] Create `.env.example` with all service environment variables (DATABASE_URL, NATS_URL, JWT_PUBLIC_KEY_PATH, RUST_LOG, etc.)
 - [ ] T015 Generate RSA-2048 key pair in `keys/private.pem` and `keys/public.pem` for JWT signing/verification
@@ -88,6 +88,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T030 Implement identity gRPC handlers for `UserService`, `RoleService`, `AuthenticationService` in `services/identity/src/handlers/`
 - [ ] T031 Implement identity server bootstrap with health/readiness endpoints, gRPC server startup, and `crates/observability` integration (tracing + Prometheus metrics) in `services/identity/src/main.rs`
 - [ ] T032 Write identity service integration tests (registration, login, token refresh, role assignment) in `services/identity/tests/integration_test.rs`
+- [ ] T032a [P] Write multi-tenant isolation tests in `services/gateway/tests/tenant_isolation_test.rs` — authenticate as tenant A user, verify GL/AP/AR endpoints return only tenant A data; attempt to access tenant B resources by ID, verify 403 Forbidden; verify no cross-tenant data leakage in list endpoints
 
 ### API Gateway
 
@@ -152,6 +153,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T064 [P] [US1] Implement `FinancialPeriod` model and `PeriodRepository` (CRUD, find by date range, open/close) in `services/gl/src/repository/period_repo.rs`
 - [ ] T065 [P] [US1] Implement `JournalEntry` model and `JournalRepository` (CRUD, status transitions, source filtering) in `services/gl/src/repository/journal_repo.rs`
 - [ ] T066 [US1] Implement `ChartOfAccountsService` (create, get, list with pagination, update, deactivate, hierarchy traversal) in `services/gl/src/service/account_service.rs`
+- [ ] T066a [US1] Implement chart of accounts CSV/Excel import in `services/gl/src/service/account_service.rs` — parse uploaded file, validate account structure, bulk-create accounts with rollback on validation failure
 - [ ] T067 [US1] Implement `FinancialPeriodService` (create, get, list, close period with posting prevention, permanently close) in `services/gl/src/service/period_service.rs`
 - [ ] T068 [US1] Implement `JournalEntryService` (create draft, validate balanced debits/credits, post to open period only, reverse with audit trail, auto-generate entry numbers) in `services/gl/src/service/journal_service.rs`
 - [ ] T069 [US1] Implement `TrialBalanceService` (calculate opening balances, period activity, closing balances, debit/credit totals) in `services/gl/src/service/trial_balance_service.rs`
@@ -168,7 +170,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Frontend Implementation for User Story 1
 
 - [ ] T079 [US1] Create `web/src/hooks/useGL.ts` with TanStack Query hooks for chart of accounts, journal entries, periods, and trial balance API calls
-- [ ] T080 [P] [US1] Create `web/src/pages/gl/ChartOfAccounts.tsx` — account list with hierarchy tree, create/edit/deactivate account modal, segment display
+- [ ] T080 [P] [US1] Create `web/src/pages/gl/ChartOfAccounts.tsx` — account list with hierarchy tree, create/edit/deactivate account modal, segment display, CSV upload for bulk account import
 - [ ] T081 [P] [US1] Create `web/src/pages/gl/JournalEntry.tsx` — journal entry form with multi-line debit/credit grid, real-time balance validation, post button, reversal
 - [ ] T082 [P] [US1] Create `web/src/pages/gl/FinancialPeriods.tsx` — period list with status badges, close period action with confirmation
 - [ ] T083 [P] [US1] Create `web/src/pages/gl/TrialBalance.tsx` — trial balance table with opening/period/closing columns, debit/credit totals, export to CSV
@@ -199,11 +201,12 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T090 [P] [US2] Implement `Payment` model and `PaymentRepository` (CRUD, batch operations, vendor filtering) in `services/ap/src/repository/payment_repo.rs`
 - [ ] T091 [US2] Implement `VendorService` (create, get, list, update vendor records) in `services/ap/src/service/vendor_service.rs`
 - [ ] T092 [US2] Implement `ApInvoiceService` (create with line items, auto-calculate totals, approve, post with GL journal entry via NATS saga) in `services/ap/src/service/invoice_service.rs`
+- [ ] T092a [US2] Implement invoice hold resolution workflow in `services/ap/src/service/invoice_service.rs` — list held invoices with hold reasons, release from hold after manual review (with approver comment), reject held invoice (notify vendor contact), record resolution in audit trail
 - [ ] T093 [US2] Implement `PaymentService` (create single payment, process batch with payment method grouping, allocate to invoices, GL entry via NATS) in `services/ap/src/service/payment_service.rs`
 - [ ] T094 [US2] Implement `ApAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ap/src/service/aging_service.rs`
 - [ ] T095 [US2] Implement AP NATS event publisher (`InvoicePosted`, `PaymentProcessed`) and subscriber (GL confirmation, workflow approval requests) in `services/ap/src/events.rs`
 - [ ] T096 [US2] Implement `VendorService` gRPC handlers in `services/ap/src/handlers/vendor_handler.rs`
-- [ ] T097 [P] [US2] Implement `ApInvoiceService` gRPC handlers in `services/ap/src/handlers/invoice_handler.rs`
+- [ ] T097 [P] [US2] Implement `ApInvoiceService` gRPC handlers (including hold resolution: list holds, release, reject) in `services/ap/src/handlers/invoice_handler.rs`
 - [ ] T098 [P] [US2] Implement `PaymentService` gRPC handlers in `services/ap/src/handlers/payment_handler.rs`
 - [ ] T099 [P] [US2] Implement `ApAgingService` gRPC handler in `services/ap/src/handlers/aging_handler.rs`
 - [ ] T100 [US2] Implement AP server bootstrap with gRPC + HTTP health and NATS in `services/ap/src/main.rs`
@@ -214,7 +217,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 - [ ] T103 [US2] Create `web/src/hooks/useAP.ts` with TanStack Query hooks for vendors, invoices, payments, and aging API calls
 - [ ] T104 [P] [US2] Create `web/src/pages/ap/Vendors.tsx` — vendor list with search, create/edit vendor modal, address and payment terms
-- [ ] T105 [P] [US2] Create `web/src/pages/ap/Invoices.tsx` — invoice list with status filters, create invoice form with line item grid, auto-calculation, approve/post actions
+- [ ] T105 [P] [US2] Create `web/src/pages/ap/Invoices.tsx` — invoice list with status filters (including HELD status), create invoice form with line item grid, auto-calculation, approve/post actions, held invoice review panel with release/reject actions
 - [ ] T106 [P] [US2] Create `web/src/pages/ap/Payments.tsx` — payment list, create payment with invoice allocation, batch payment processing
 - [ ] T107 [P] [US2] Create `web/src/pages/ap/ApAging.tsx` — aging report table with vendor rows and time bucket columns, totals row
 - [ ] T108 [US2] Add AP module routes to `web/src/App.tsx` router with sidebar navigation entries
