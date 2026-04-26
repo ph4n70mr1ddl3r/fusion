@@ -150,10 +150,10 @@ requirements.
 | gRPC Framework     | tonic + prost                       |
 | Database           | PostgreSQL (per-service schema/DB)  |
 | ORM / Query        | sqlx (compile-time checked)         |
-| Message Broker     | NATS or RabbitMQ                    |
+| Message Broker     | NATS (JetStream)                    |
 | Observability      | tracing + OpenTelemetry + Prometheus|
 | Containerization   | Docker (multi-stage builds)         |
-| Orchestration      | Docker Compose (dev), Kubernetes    |
+| Orchestration      | Docker Compose (dev + initial prod); Kubernetes deferred to post-v1 |
 | CI/CD              | GitHub Actions / GitLab CI          |
 | Testing            | cargo test, cargo nextest           |
 | Linting            | cargo clippy, rustfmt               |

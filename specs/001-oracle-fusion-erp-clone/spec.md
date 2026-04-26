@@ -330,6 +330,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - Bulk import for other master data (vendors, customers, journal entries) and transaction types is deferred to a future enhancement, reducing v1 scope while the manual entry workflows cover core use cases.
 - The system will support a default set of languages and localization for English-speaking markets initially, with extensibility for additional locales.
 - Integration with external systems (banking, tax authorities) will be via file-based exchange initially, with real-time API integration as a future enhancement.
+- Kubernetes deployment manifests and Helm charts are deferred to a post-v1 enhancement. Initial deployment uses Docker Compose for both development and production environments.
 - Regulatory compliance frameworks (SOX, IFRS, GAAP) are supported through the system's reporting and audit capabilities but legal certification is out of scope.
 - Inventory management, project management, and human resources modules are out of scope for this ERP clone — the focus is on financial modules.
 - Manufacturing, supply chain planning, and CRM modules are out of scope.

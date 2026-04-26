@@ -58,11 +58,13 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T011 [P] Implement `crates/messaging/` with NATS JetStream publisher/subscriber abstraction using `async-nats` crate
 - [ ] T011a [P] Implement `crates/resilience/` shared crate with circuit breaker pattern (via `tower`), configurable retry policies, and gRPC client interceptor — all inter-service calls MUST use this interceptor for day-one reliability (Constitution Principle V)
 - [ ] T012 [P] Implement `crates/testing/` with test fixtures, mock gRPC services, DB seeders, and `TestDb` helper for isolated test databases with tenant context seeding (create test tenants with separate data sets)
-- [ ] T013 [P] Configure CI pipeline in `.github/workflows/ci.yml` with cargo build, cargo nextest, clippy, fmt check, and cargo audit
+- [ ] T013 [P] Configure CI pipeline in `.github/workflows/ci.yml` with: `RUSTFLAGS="-D warnings"` cargo build, `cargo llvm-cov nextest --lcov --output-path lcov.info` (≥90% line coverage gate via `cargo llvm-cov --fail-under-lines 90`), cargo clippy -- -D warnings, cargo fmt --check, and cargo audit
 - [ ] T014 [P] Create `.env.example` with all service environment variables (DATABASE_URL, NATS_URL, JWT_PUBLIC_KEY_PATH, RUST_LOG, etc.)
 - [ ] T015 Generate RSA-2048 key pair in `keys/private.pem` and `keys/public.pem` for JWT signing/verification
 - [ ] T016 [P] Configure `cargo-nextest` in `.nextest.toml` with test threading and retry settings
 - [ ] T016a [P] Implement `crates/observability/` shared crate with OpenTelemetry tracing initialization, span propagation helpers for gRPC and NATS, and standard Prometheus metrics registry (request latency, error rate, throughput counters) — all services MUST depend on this crate for day-one observability (Constitution Principle V)
+- [ ] T016b [P] Implement `crates/currency/` shared crate with `ExchangeRateClient` trait (fetch rate for currency/date pair, return `Result<Decimal, RateError>`) and a default `PassthroughExchangeRateClient` that always returns `Ok(1.0)` for single-currency mode — P1 services use this default; Phase 11 consolidation service provides the real implementation via dependency injection
+- [ ] T016c [P] Create `.github/pull_request_template.md` with fields for linked spec FR/US, test description, and constitution compliance checklist. Document branch protection rules (require PR review, no direct pushes to main) in `CONTRIBUTING.md`
 - [ ] T017 [P] Create `web/src/api/` API client scaffolding with Axios/TanStack Query configuration and gateway base URL
 - [ ] T018 [P] Create `web/src/types/` TypeScript type definitions generated from proto contract structures
 - [ ] T019 [P] Create `web/src/stores/` Zustand stores for global app state (current user, current tenant, sidebar, selected period)
@@ -210,7 +212,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T089 [P] [US2] Implement `ApInvoice` model and `InvoiceRepository` (CRUD, status transitions, vendor filtering, date range, optimistic locking on update) in `services/ap/src/repository/invoice_repo.rs`
 - [ ] T090 [P] [US2] Implement `Payment` model and `PaymentRepository` (CRUD, batch operations, vendor filtering) in `services/ap/src/repository/payment_repo.rs`
 - [ ] T091 [US2] Implement `VendorService` (create, get, list, update vendor records) in `services/ap/src/service/vendor_service.rs`
-- [ ] T092 [US2] Implement `ApInvoiceService` (create with line items, auto-calculate totals, approve, post with GL journal entry via NATS saga, 3-way match validation via procurement gRPC client for PO-linked invoices (T182b), foreign currency exchange rate validation via consolidation service (block if no rate for currency/date — EC-2)) in `services/ap/src/service/invoice_service.rs`
+- [ ] T092 [US2] Implement `ApInvoiceService` (create with line items, auto-calculate totals, approve, post with GL journal entry via NATS saga; NOTE: 3-way match for PO-linked invoices is added in T182b (Phase 8) after procurement service exists; currency validation uses `crates/currency::ExchangeRateClient` — single-currency no-op in v1, multi-currency via consolidation service in Phase 11) in `services/ap/src/service/invoice_service.rs`
 - [ ] T092a [US2] Implement invoice hold resolution workflow in `services/ap/src/service/invoice_service.rs` — list held invoices with hold reasons, release from hold after manual review (with approver comment), reject held invoice (notify vendor contact), record resolution in audit trail
 - [ ] T093 [US2] Implement `PaymentService` (create single payment, process batch with payment method grouping, allocate to invoices, GL entry via NATS) in `services/ap/src/service/payment_service.rs`
 - [ ] T094 [US2] Implement `ApAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ap/src/service/aging_service.rs`
@@ -259,7 +261,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T113 [P] [US3] Implement `ArInvoice` model and `InvoiceRepository` (CRUD, status transitions, customer filtering, date range, optimistic locking on update) in `services/ar/src/repository/invoice_repo.rs`
 - [ ] T114 [P] [US3] Implement `Receipt` model and `ReceiptRepository` (CRUD, matching, unapplied amount tracking) in `services/ar/src/repository/receipt_repo.rs`
 - [ ] T115 [US3] Implement `CustomerService` (create, get, list, update, credit limit check with outstanding balance calculation) in `services/ar/src/service/customer_service.rs`
-- [ ] T116 [US3] Implement `ArInvoiceService` (create with line items, auto-calculate totals, post with revenue recognition GL entry via NATS saga, credit limit check before posting, foreign currency exchange rate validation via consolidation service (block if no rate for currency/date — EC-2)) in `services/ar/src/service/invoice_service.rs`
+- [ ] T116 [US3] Implement `ArInvoiceService` (create with line items, auto-calculate totals, post with revenue recognition GL entry via NATS saga, credit limit check before posting; currency validation uses `crates/currency::ExchangeRateClient` — single-currency no-op in v1, multi-currency via consolidation service in Phase 11) in `services/ar/src/service/invoice_service.rs`
 - [ ] T117 [US3] Implement `ReceiptService` (create with optional pre-match, match/unmatch to invoices, update unapplied amount, GL entry via NATS) in `services/ar/src/service/receipt_service.rs`
 - [ ] T118 [US3] Implement `ArAgingService` (aging report with time buckets: current, 30, 60, 90+ days) in `services/ar/src/service/aging_service.rs`
 - [ ] T119 [US3] Implement credit limit enforcement service (check outstanding balance, place customer on hold, emit credit hold notification event) in `services/ar/src/service/credit_service.rs`
@@ -435,7 +437,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T201 [US5] Implement `IncomeStatementService` (aggregate GL revenue/expense accounts by period, support comparison periods) in `services/reporting/src/service/income_statement_service.rs`
 - [ ] T202 [P] [US5] Implement `BalanceSheetService` (aggregate GL asset/liability/equity accounts as of date, verify balancing) in `services/reporting/src/service/balance_sheet_service.rs`
 - [ ] T203 [P] [US5] Implement `CashFlowStatementService` (derive from income statement + balance sheet changes) in `services/reporting/src/service/cash_flow_service.rs`
-- [ ] T204 [US5] Implement `DashboardService` (aggregate KPIs: revenue, expenses, cash position, AR aging, AP aging via gRPC calls to GL/AP/AR) in `services/reporting/src/service/dashboard_service.rs`
+- [ ] T204 [US5] Implement `DashboardService` (aggregate KPIs: revenue, expenses, cash position, AR aging, AP aging via gRPC calls to GL/AP/AR; include response timestamp so frontend can display data freshness; backend MUST NOT cache KPI data longer than 55 seconds to satisfy FR-021 60-second freshness requirement) in `services/reporting/src/service/dashboard_service.rs`
 - [ ] T205 [US5] Implement `CustomReportService` (create/save/run custom reports with configurable fields, filters, groupings stored as JSON definition) in `services/reporting/src/service/custom_report_service.rs`
 - [ ] T206 [US5] Implement `ReportExportService` (PDF via `genpdf`, XLSX via `rust_xlsxwriter`, CSV export with async job queue for large datasets) — report-level CSV is this task; list-view CSV for all data tables is cross-cutting concern (T307) in `services/reporting/src/service/export_service.rs`
 - [ ] T207 [US5] Implement `StandardReportService` gRPC handlers in `services/reporting/src/handlers/standard_handler.rs`
@@ -513,7 +515,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 ### Backend Implementation for User Story 7
 
 - [ ] T239 [US7] Scaffold consolidation service structure in `services/consolidation/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
-- [ ] T240 [US7] Create consolidation database migrations for `legal_entities`, `exchange_rates`, `consolidation_runs` tables in `services/consolidation/migrations/`
+- [ ] T240 [US7] Create consolidation database migrations for `legal_entities`, `exchange_rates`, `consolidation_runs` tables in `services/consolidation/migrations/` — `consolidation_runs` MUST include columns: `run_id`, `reporting_period`, `parent_entity_id`, `included_subsidiary_ids` (JSONB), `exchange_rates_used` (JSONB), `eliminations_applied` (JSONB), `run_status`, `completed_at`
 - [ ] T241 [US7] Implement `LegalEntity` model and `LegalEntityRepository` (CRUD, hierarchy, active filtering) in `services/consolidation/src/repository/entity_repo.rs`
 - [ ] T242 [P] [US7] Implement `ExchangeRate` model and `ExchangeRateRepository` (CRUD, find current rate, effective date filtering) in `services/consolidation/src/repository/rate_repo.rs`
 - [ ] T243 [US7] Implement `LegalEntityService` (create, get, list, update entities with base currency and fiscal year settings) in `services/consolidation/src/service/entity_service.rs`
@@ -652,7 +654,9 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 - [ ] T300a [P] [US1] Write GL edge-case tests: posting to closed period (EC-1), concurrent journal entry editing (EC-4), budget fully consumed posting (EC-7) in `services/gl/tests/edge_case_test.rs`
 - [ ] T300b [P] [US2] Write AP edge-case tests: vendor invoice exceeding PO amount (EC-5), concurrent invoice editing (EC-4) in `services/ap/tests/edge_case_test.rs`
+- [ ] T300b2 [P] [US2] Write AP currency validation edge-case tests: foreign currency invoice with no exchange rate returns error, stale rate (>30 days) triggers warning, in `services/ap/tests/currency_test.rs`
 - [ ] T300c [P] [US3] Write AR edge-case tests: unapplied cash / payment not matching any invoice (spec edge 6) in `services/ar/tests/edge_case_test.rs`
+- [ ] T300c2 [P] [US3] Write AR currency validation edge-case tests: foreign currency invoice with no exchange rate returns error, stale rate warning, in `services/ar/tests/currency_test.rs`
 - [ ] T300d [P] [US4] Write procurement edge-case tests: partial/over-delivery against PO (spec edge 10) in `services/procurement/tests/edge_case_test.rs`
 - [ ] T300e [P] [US7] Write consolidation edge-case tests: missing/stale exchange rates (spec edge 2), differing intercompany exchange rates (spec edge 8), currency conversion decimal precision validation (SC-007: assert all conversion results rounded to exactly 2 decimal places) in `services/consolidation/tests/edge_case_test.rs`
 - [ ] T300f [P] [US9] Write workflow edge-case tests: circular approval reference (spec edge 3), no eligible approvers (spec edge 3) in `services/workflow/tests/edge_case_test.rs`
@@ -666,6 +670,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
   - SC-003: Generate standard reports against 100K posted transactions, assert < 10s
   - SC-009: Period-end close with 1K+ assets and 10K+ journal entries, assert < 5 minutes
   - Use `criterion` for Rust benchmarks and `k6` or `wrk` for HTTP load testing
+- [ ] T308b [US1,US2,US3] Write end-to-end audit trail validation tests: (1) create AP invoice → post → trace from invoice through GL journal entry to trial balance; (2) create AR invoice → post → trace through GL to financial report; (3) verify source document linkage is bidirectional. In `tests/e2e/audit_trail_test.rs`
 - [ ] T309 [P] Add `web/src/pages/Login.tsx` and `web/src/pages/ForgotPassword.tsx` authentication pages with token refresh handling
 - [ ] T310 Final workspace validation: `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --check`, `npm run build` (frontend) all passing
 
@@ -686,7 +691,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
   - **Phase 8 (US4/Procurement)**: Depends on US2 (AP integration for 3-way match)
   - **Phase 9 (US5/Reporting)**: Depends on US1 (GL data), US2 (AP data), US3 (AR data)
   - **Phase 10 (US6/Budget)**: Depends on US1 (GL accounts and events)
-  - **Phase 11 (US7/Multi-Org)**: Depends on US1 (GL trial balances for consolidation)
+  - **Phase 11 (US7/Multi-Org)**: Depends on US1 (GL trial balances for consolidation); `crates/currency/` (Phase 1) provides exchange rate abstraction — consolidation service provides the concrete multi-currency implementation
   - **Phase 12 (US10/Tax)**: Depends on US2 (AP) and US3 (AR) for tax transactions
   - **Phase 13 (US11/Assets)**: Depends on US1 (GL for depreciation posting)
 - **Polish (Phase 14)**: Can run incrementally alongside any user story phase

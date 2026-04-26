@@ -15,6 +15,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 **Primary Dependencies**:
 - Backend: axum 0.8, tonic 0.12, prost 0.13, tokio 1.x, sqlx 0.8 (PostgreSQL, compile-time checked), serde 1.x, tracing 0.1, uuid 1.x, chrono 0.4
 - Frontend: React 19, TypeScript 5.x, TanStack Query, Recharts, TanStack Table
+- Additional: lettre 0.1 (SMTP email), genpdf 0.2 (PDF generation), rust_xlsxwriter 0.8 (XLSX export), moka 0.12 (caching), criterion 0.5 (benchmarking)
 **Storage**: PostgreSQL 16 (one database per service for strict isolation)
 **Message Broker**: NATS 2 with JetStream (selected for lightweight footprint, native JetStream durable messaging, and first-class Rust client via `async-nats`)
 **Testing**: cargo test / cargo nextest (unit + integration), tonic mock-based contract tests, Playwright (E2E)
@@ -22,7 +23,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 **Project Type**: Web service (microservices) + single-page web application
 **Performance Goals**: 100 concurrent users, <3s response time, <10s report generation for 100K transactions, approval notifications within 5s
 **Constraints**: Multi-tenant data isolation, 100% audit trail integrity, no manual GL corrections for currency
-**Scale/Scope**: 12 domain services + 1 gateway + 9 shared crates + 1 frontend SPA; ~30 endpoints per service; 14 key entities (see spec.md Key Entities section)
+**Scale/Scope**: 12 domain services + 1 gateway + 10 shared crates + 1 frontend SPA; ~30 endpoints per service; 14 key entities (see spec.md Key Entities section)
 
 ## Constitution Check
 
@@ -97,6 +98,7 @@ fusion/
 │   ├── types/                          # Shared domain types (Money, Currency, AuditInfo)
 │   ├── db/                             # sqlx pool management, migration runner
 │   ├── auth/                           # JWT validation, axum middleware
+│   ├── currency/                       # Exchange rate client abstraction (single-currency default, consolidation service provides multi-currency impl)
 │   ├── error/                          # Unified error types, API error mapping
 │   ├── messaging/                      # NATS publisher/subscriber abstraction
 │   ├── resilience/                     # Circuit breaker, retry policies, gRPC client interceptor
@@ -134,7 +136,7 @@ fusion/
 └── .specify/                           # SpecKit configuration
 ```
 
-**Structure Decision**: Cargo workspace with 13 binary crates under `services/` and 9 library crates under `crates/`. Each domain service has its own PostgreSQL database, `migrations/` directory, and follows a `handlers → service → repository` layered architecture. The gateway provides REST-to-gRPC translation for the React frontend. Proto definitions live in `proto/` at the repo root and are compiled into `crates/proto/` via `build.rs`.
+**Structure Decision**: Cargo workspace with 13 binary crates under `services/` and 10 library crates under `crates/`. Each domain service has its own PostgreSQL database, `migrations/` directory, and follows a `handlers → service → repository` layered architecture. The gateway provides REST-to-gRPC translation for the React frontend. Proto definitions live in `proto/` at the repo root and are compiled into `crates/proto/` via `build.rs`.
 
 ## Service Decomposition
 
