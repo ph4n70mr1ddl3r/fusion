@@ -23,7 +23,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 **Project Type**: Web service (microservices) + single-page web application
 **Performance Goals**: 100 concurrent users, <3s response time, <10s report generation for 100K transactions, approval notifications within 5s
 **Constraints**: Multi-tenant data isolation (database-per-tenant), 100% audit trail integrity, no manual GL corrections for currency, 7-year data retention
-**Scale/Scope**: 12 domain services + 1 gateway + 10 shared crates + 1 frontend SPA; ~30 endpoints per service; 17 key entities (see spec.md Key Entities section)
+**Scale/Scope**: 12 domain services + 1 gateway + 14 shared crates + 1 frontend SPA; ~30 endpoints per service; 17 key entities (see spec.md Key Entities section)
 
 ## Constitution Check
 
@@ -80,8 +80,8 @@ fusion/
 ├── .env.example                  # Environment variable template
 ├── Makefile                      # Common commands (build, test, migrate, lint)
 │
-├── contracts/                    # Proto definitions (build-time source of truth, versioned)
-│   └── *.proto                   # Copied from specs/.../contracts/ via T005; compiled by crates/proto/
+├── proto/                        # Proto definitions (build-time source of truth, versioned)
+│   └── */v1/*.proto               # Copied from specs/.../contracts/ via T005; compiled by crates/proto/
 │
 ├── crates/
 │   ├── proto/                    # Auto-generated protobuf Rust types (build.rs from contracts/)
@@ -93,7 +93,11 @@ fusion/
 │   ├── observability/            # tracing subscribers, OTEL pipeline, Prometheus metrics registry
 │   ├── pagination/               # Cursor-based pagination (encode/decode, page tokens)
 │   ├── testing/                  # Test DB fixtures, mock gRPC clients, test data factories
-│   └── export/                   # PDF (genpdf) and XLSX (rust_xlsxwriter) generation
+│   ├── export/                   # PDF (genpdf) and XLSX (rust_xlsxwriter) generation
+│   ├── messaging/                # NATS JetStream publisher/subscriber, outbox pattern infrastructure
+│   ├── resilience/               # Circuit breaker, retry policies, gRPC client interceptor
+│   ├── currency/                 # ExchangeRateClient trait, PassthroughExchangeRateClient (single-currency default)
+│   └── document_numbering/       # Sequential document numbering per-tenant/type/year (FR-044)
 │
 ├── services/
 │   ├── gateway/                  # API gateway (axum): REST→gRPC translation, auth, rate limiting
@@ -242,7 +246,7 @@ fusion/
 
 **Structure Decision**: Web application (Option 2) with Rust microservices backend and React/TypeScript frontend. The workspace structure follows Constitution Principle VI with `services/`, `crates/`, and `web/` directories.
 
-**Proto workflow**: Design-time proto files live in `specs/001-oracle-fusion-erp-clone/contracts/` (for spec review and version tracking). Task T005 copies them to the repo-root `contracts/` directory with versioned paths (`proto/common/v1/types.proto`, etc.). The `crates/proto/` build.rs compiles from the repo-root `contracts/` directory. The specs-level contracts are the authoritative design; the repo-root contracts are the authoritative build source.
+**Proto workflow**: Design-time proto files live in `specs/001-oracle-fusion-erp-clone/contracts/` (for spec review and version tracking). Task T005 copies them to the repo-root `proto/` directory with versioned paths (`proto/common/v1/types.proto`, etc.). The `crates/proto/` build.rs compiles from the repo-root `proto/` directory. The specs-level contracts are the authoritative design; the repo-root proto files are the authoritative build source.
 
 ## Implementation Phases
 
