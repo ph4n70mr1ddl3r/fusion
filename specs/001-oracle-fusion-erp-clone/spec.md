@@ -218,7 +218,8 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 
 **General Ledger**
 - **FR-001**: System MUST allow administrators to define a multi-level chart of accounts with account segments (e.g., company, department, natural account, location).
-- **FR-002**: System MUST support creation, editing, and posting of manual and system-generated journal entries with multi-line debit/credit entry.
+- **FR-044**: System MUST auto-generate sequential document numbers for all business documents (journal entries, invoices, purchase orders, payments, requisitions, budgets) per tenant with configurable prefixes per document type (e.g., `INV-2026-0001`, `JE-2026-0001`). Sequences reset annually. Gaps from voided or deleted drafts are acceptable and do not require backfill.
+- **FR-002**: System MUST support creation, editing, and posting of manual and system-generated journal entries with multi-line debit/credit entry. Reversal of a posted entry MUST create a new auto-generated reversing entry (swapped debits/credits) that is posted to the same period (or the current open period if the original period is closed). Reversal requires a dedicated "reverse" permission distinct from the "post" permission — only users with the reversal permission (typically GL Manager role) may initiate reversals. The original entry MUST remain posted with its status updated to "Reversed" and a reference to the reversing entry. Both entries MUST be visible in the audit trail.
 - **FR-003**: System MUST enforce balanced journal entries (total debits = total credits) before allowing posting.
 - **FR-004**: System MUST support financial period open/close management with the ability to prevent postings to closed periods.
 - **FR-005**: System MUST generate a trial balance showing opening balances, period activity, and closing balances for all accounts.
@@ -262,7 +263,7 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **FR-030**: System MUST support financial consolidation with intercompany elimination and currency translation.
 
 **Access Control & Security**
-- **FR-031**: System MUST provide role-based access control with configurable permissions per module, function, and data scope. Data scopes MUST include: `OWN` (records created by the user — requires `created_by_user_id` on all transactional entities), `DEPARTMENT` (records within the user's department — requires `department_id` on all transactional entities, populated from the creating user's department), and `ALL` (all records within the tenant).
+- **FR-031**: System MUST provide role-based access control with configurable permissions per module, function, and data scope. Permissions MUST be granular enough to distinguish between related but sensitive operations (e.g., "post" vs. "reverse" for journal entries, "create" vs. "approve" for invoices). Data scopes MUST include: `OWN` (records created by the user — requires `created_by_user_id` on all transactional entities), `DEPARTMENT` (records within the user's department — requires `department_id` on all transactional entities, populated from the creating user's department), and `ALL` (all records within the tenant).
 - **FR-032**: System MUST log all user actions (create, read, update, delete) with user identity, timestamp, and affected record in an immutable audit log. This security audit log is distinct from the financial audit trail (FR-006) which tracks financial transaction lineage. All audit log data and financial records MUST be retained for a minimum of 7 years, after which automated purge is performed. Retention period is fixed (not configurable per-tenant) in v1.
 - **FR-033**: System MUST enforce strong password policies (minimum 12 characters, at least one uppercase letter, one digit, one special character) and support session management with configurable timeouts (default 30 minutes, configurable per tenant).
 - **FR-033a**: System MUST support user authentication via email/password with Argon2 hashing, JWT RS256 access tokens and refresh tokens, including login, logout, token refresh flows, and password recovery via email-based reset link with configurable expiry (default 1 hour).
@@ -283,6 +284,12 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **FR-041**: System MUST calculate and post depreciation expense automatically at period end using configurable depreciation methods (straight-line, declining balance).
 - **FR-042**: System MUST support asset disposal with automatic gain/loss calculation and GL posting.
 
+**Tenant Onboarding**
+- **FR-043a**: System MUST provide a two-phase tenant provisioning process. **Phase 1 (Platform Bootstrap)**: A seed script or CLI command creates the tenant's database, registers the tenant in the platform registry, and creates the first admin user with credentials. **Phase 2 (Guided Setup Wizard)**: Upon first login, the wizard walks the administrator through: (1) creating the first legal entity with name and base currency, (2) selecting a chart of accounts template by industry/region (with full customization after import), (3) configuring the fiscal calendar, and (4) importing opening balances via CSV upload (account code, balance as of cutoff date). Upon wizard completion, the tenant MUST be operational and ready for transaction entry. Subsequent tenants can be provisioned via the same seed script followed by the wizard.
+
+**Cross-Service Consistency**
+- **FR-043**: System MUST use the transactional outbox pattern for all cross-service state changes (e.g., AP invoice posting triggering GL journal entry creation, AR invoice posting triggering revenue recognition). Domain services MUST write outbox messages to their own database within the same transaction as the business operation. A relay process MUST publish these messages to NATS JetStream for consumption by downstream services (GL, Reporting, etc.). Consumers MUST be idempotent to handle at-least-once delivery. If a downstream service is unavailable, messages MUST remain in the outbox for retry — the originating service's transaction MUST NOT fail due to downstream unavailability.
+
 ### Key Entities
 
 - **Chart of Accounts**: Multi-segment account structure defining the organization's financial reporting framework. Key attributes include account code, name, type (asset, liability, equity, revenue, expense), segment values, and active/inactive status.
@@ -298,7 +305,9 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **Legal Entity**: An independent organizational unit for financial reporting. Key attributes include entity code, name, base currency, fiscal year settings, and parent entity for consolidation.
 - **Role**: A collection of permissions defining user access. Key attributes include role name, module permissions, function permissions, data access scope, and assigned users.
 - **Approval Workflow**: A configurable sequence of approval steps. Key attributes include workflow name, trigger conditions (amount, type, department), approver assignments, and escalation rules.
-- **Tax Rate**: A percentage applied to taxable transactions. Key attributes include tax code, jurisdiction, rate percentage, effective dates, and applicable item categories.
+- **Document Numbering**: Business documents (invoices, journal entries, purchase orders, payments, requisitions, etc.) use auto-generated sequential numbering per tenant with configurable prefixes per document type (e.g., `INV-2026-0001`, `JE-2026-0001`, `PO-2026-0001`). The sequence is per-tenant, per document type, per year. Gaps in sequences from voided or deleted drafts are acceptable.
+
+**Tax Rate**: A percentage applied to taxable transactions. Key attributes include tax code, jurisdiction, rate percentage, effective dates, and applicable item categories.
 - **Notification**: A system message delivered to a user. Key attributes include notification ID, recipient user ID, type (approval, system, alert), title, body, reference entity (type + ID), read status, and created timestamp.
 - **Consolidation Run**: A record of a financial consolidation execution. Key attributes include run ID, reporting period, parent entity, included subsidiary IDs, exchange rates used, intercompany eliminations applied, run status, and completed timestamp.
 - **Department**: An organizational unit for scoping data access and reporting. Key attributes include department code, name, parent department (for hierarchy), and assigned users.
@@ -319,6 +328,17 @@ As a fixed asset accountant, I need to track asset acquisition, depreciation, an
 - **SC-010**: *(Post-launch usability metric — not a buildable requirement)* 90% of users report the interface as intuitive and easy to navigate in post-deployment feedback.
 
 ## Clarifications
+
+### Session 2026-04-27
+
+- Q: What consistency model should domain services use when impacting the GL (e.g., AP invoice posting creates GL journal entries)? → A: Outbox pattern — domain service writes to its own outbox table in the same DB transaction; a relay publishes to NATS; GL consumes async with at-least-once delivery and idempotent consumers.
+- Q: What initial setup/onboarding experience should the system provide for new tenants? → A: Guided setup wizard — step-by-step wizard to create legal entity, base currency, chart of accounts template (industry presets), and first admin user. Tenant is operational when wizard completes.
+- Q: What happens to the original entry when a posted journal entry is reversed? → A: Auto-create reversing entry — original remains posted; a new auto-generated reversing entry (swapped debits/credits) is created and posted. Both visible in audit trail.
+- Q: How should business documents (invoices, journal entries, purchase orders) be numbered? → A: Auto-generated sequential numbering per tenant with configurable prefixes per document type (e.g., `INV-2026-0001`, `JE-2026-0001`).
+- Q: How is the initial tenant provisioned — wizard-only or separate bootstrap? → A: Platform bootstrap seed script creates first tenant + admin user, then guided setup wizard handles business configuration (CoA, fiscal calendar, legal entity details).
+- Q: What is the minimum set of AP payment methods in v1? → A: All four as specified: CHECK, WIRE_TRANSFER, ACH, CASH.
+- Q: Who can reverse posted journal entries? → A: Dedicated permission — reversal requires a specific "reverse" permission separate from "post", typically assigned to GL Manager role only.
+- Q: Should the system support importing opening balances during tenant onboarding? → A: CSV import of opening balances during setup wizard — balances for each account as of a cutoff date.
 
 ### Session 2026-04-26
 
