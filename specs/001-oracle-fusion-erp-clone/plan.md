@@ -23,7 +23,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 **Project Type**: Web service (microservices) + single-page web application
 **Performance Goals**: 100 concurrent users, <3s response time, <10s report generation for 100K transactions, approval notifications within 5s
 **Constraints**: Multi-tenant data isolation (database-per-tenant), 100% audit trail integrity, no manual GL corrections for currency, 7-year data retention
-**Scale/Scope**: 12 domain services + 1 gateway + 14 shared crates + 1 frontend SPA; ~30 endpoints per service; 17 key entities (see spec.md Key Entities section)
+**Scale/Scope**: 12 domain services + 1 gateway + 14 shared crates + 1 frontend SPA; ~30 endpoints per service; 18 key entities (see spec.md Key Entities section)
 
 ## Constitution Check
 
@@ -273,7 +273,7 @@ All 13 technical unknowns resolved:
 
 **Output**: [data-model.md](./data-model.md), [contracts/](./contracts/), [quickstart.md](./quickstart.md)
 
-- **data-model.md**: 17 key entities with full field definitions, types, constraints, validation rules, state transitions, and indexes. Grouped by owning service. Cross-cutting audit_log and tenant routing documented.
+- **data-model.md**: 18 key entities with full field definitions, types, constraints, validation rules, state transitions, and indexes. Grouped by owning service. Cross-cutting audit_log and tenant routing documented.
 - **contracts/**: 12 Protocol Buffer v3 service definitions covering all gRPC interfaces: identity, gl, ap, ar, procurement, reporting, budget, consolidation, fixed-asset, tax, workflow, notification.
 - **quickstart.md**: Developer onboarding guide with project structure, service ports, environment variables, database setup, test commands, and tenant provisioning.
 
@@ -290,8 +290,8 @@ Task decomposition follows a layered build-up approach:
 6. **Notification service** — used by workflow for approval notifications
 7. **AP service** — depends on GL (posting) + Workflow (approvals) + Tax (calculation)
 8. **AR service** — depends on GL (posting) + Workflow (approvals) + Tax (calculation)
-9. **Tax service** — standalone; consumed by AP/AR
-10. **Procurement service** — depends on AP (vendor ref, three-way match) + Workflow
+9. **Procurement service** — depends on AP (vendor ref, three-way match) + Workflow
+10. **Tax service** — depends on AP/AR (tax events from invoices); consumed during invoice processing
 11. **Fixed Asset service** — depends on GL (posting) + Consolidation (entity ref)
 12. **Budget service** — depends on GL (actuals) + Workflow (approvals)
 13. **Consolidation service** — depends on GL (period close, exchange rates)

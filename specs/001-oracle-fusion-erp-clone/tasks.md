@@ -109,12 +109,13 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T033 Scaffold gateway service structure in `services/gateway/` with `Cargo.toml`, `src/main.rs`, `src/routes/`, `src/middleware/`
 - [ ] T034 Implement gateway REST-to-gRPC routing with tonic clients for each backend service in `services/gateway/src/routes/mod.rs`
 - [ ] T035 Implement gateway auth middleware (JWT validation via `crates/auth`, tenant extraction, user context injection) in `services/gateway/src/middleware/auth.rs`
-- [ ] T036 [P] Implement gateway rate limiting middleware via `tower` in `services/gateway/src/middleware/rate_limit.rs`
+- [ ] T036 [P] Implement gateway rate limiting middleware via `tower` — enforce per-tenant rate limit of 1000 requests/minute per FR-033b. Requests exceeding the limit MUST receive HTTP 429 (Too Many Requests) with a `Retry-After` header. Rate limiting is applied uniformly across all endpoints in `services/gateway/src/middleware/rate_limit.rs`
 - [ ] T037 Implement gateway server bootstrap with health/readiness, all REST route registrations, and `crates/observability` integration (tracing + Prometheus metrics) in `services/gateway/src/main.rs`
 - [ ] T038 Write gateway integration tests (auth middleware, proxy routing, rate limiting) in `services/gateway/tests/integration_test.rs`
 - [ ] T034a [US8] Add identity REST routes to gateway proxy (login, register, token refresh, password reset, users, roles, audit log) in `services/gateway/src/routes/identity.rs`
 - [ ] T034b [US9] Add workflow REST routes to gateway proxy (workflow CRUD, submit/approve/reject, delegation, history) in `services/gateway/src/routes/workflow.rs`
 - [ ] T034c Add notification REST routes to gateway proxy (list notifications, mark read, unread count, preferences) in `services/gateway/src/routes/notification.rs`
+- [ ] T034d [US9] Create `web/src/hooks/useNotifications.ts` with TanStack Query hooks for notification list (`refetchInterval: 30000` per FR-035), unread count, mark-read, and mark-all-read API calls
 
 ### Workflow Service (Basic Approvals)
 
@@ -141,6 +142,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T054 Implement notification gRPC handlers for `NotificationService` and `NotificationEventService` in `services/notification/src/handlers/`
 - [ ] T055 Implement notification server bootstrap with health/readiness and `crates/observability` integration (tracing + Prometheus metrics) in `services/notification/src/main.rs`
 - [ ] T056 Write notification service tests in `services/notification/tests/integration_test.rs`
+- [ ] T056a [US9] Create `web/src/pages/notifications/NotificationCenter.tsx` — notification list with unread badge count, mark-read/mark-all-read actions, type filter (approval, system, alert), reference entity link-out, 30-second polling via TanStack Query `refetchInterval: 30000`. Add bell icon with unread count badge to `web/src/components/layout/Header.tsx`. Add notification REST routes to gateway proxy if not already present in T034c.
 
 ### P1 Service Scaffolding
 
@@ -149,12 +151,18 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T059 [P] Scaffold AR service structure in `services/ar/` with `Cargo.toml`, `src/main.rs` (health/readiness stub), `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
 - [ ] T059a [P] Create `web/src/pages/Login.tsx` (email/password form, JWT storage, redirect to dashboard) and `web/src/pages/ForgotPassword.tsx` (email entry, reset token submission, new password form) with token refresh handling in `web/src/pages/`
 
+### Consolidation Service (Minimal Scaffold for Setup Wizard)
+
+- [ ] T059x Scaffold minimal consolidation service structure in `services/consolidation/` with `Cargo.toml`, `src/main.rs` (health/readiness stub + gRPC server), `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
+- [ ] T059y Create consolidation database migration for `legal_entities` table (id, tenant_id, code, name, base_currency, fiscal_year_start, parent_entity_id, status, created_at, updated_at) in `services/consolidation/migrations/`
+- [ ] T059z Implement `LegalEntityRepository` (create, get, list) and `LegalEntityService` (create legal entity, get by ID) with gRPC handler in `services/consolidation/src/` — minimal CRUD only; full entity management, hierarchy, and remaining features deferred to Phase 11 (T239–T253)
+
 ### Tenant Onboarding (FR-043a)
 
 - [ ] T059b Implement tenant provisioning CLI binary (`src/bin/provision.rs`) using `clap`: accepts `--tenant-name`, `--admin-email`, `--admin-password` flags; creates tenant record in identity DB, creates per-service tenant databases (runs migrations for GL/AP/AR/etc.), creates first admin user with Argon2-hashed password, outputs tenant ID and confirmation. Add to `Cargo.toml` as `[[bin]]` entry in workspace root.
 - [ ] T059c [P] Implement `TenantProvisioningService` in `services/identity/src/service/provisioning_service.rs` — gRPC endpoints: `CreateTenant` (registers tenant + admin user + triggers per-service DB creation), `GetSetupStatus` (returns wizard completion state per tenant)
-- [ ] T059d [P] Create setup wizard database migrations for `fiscal_calendars`, `chart_of_accounts_templates` tables in `services/gl/migrations/` — these are tenant-scoped tables populated during wizard. Note: `legal_entities` table is owned by consolidation service (see T240); setup wizard creates legal entities via gRPC call to consolidation service (T059e).
-- [ ] T059e [P] Implement `SetupWizardService` gRPC handlers in `services/identity/src/handlers/setup_handler.rs` — `CreateLegalEntity` (name + base currency → calls consolidation service gRPC `CreateLegalEntity`; consolidation service owns the `legal_entities` table per T240), `ImportCoATemplate` (industry/region selection → bulk-insert accounts into GL), `ConfigureFiscalCalendar` (year start, periods), `ImportOpeningBalances` (CSV upload: account code + balance + cutoff date → creates opening journal entry in GL)
+- [ ] T059d [P] Create setup wizard database migrations for `fiscal_calendars`, `chart_of_accounts_templates` tables in `services/gl/migrations/` — these are tenant-scoped tables populated during wizard. Note: `legal_entities` table is owned by consolidation service (scaffolded in T059x–T059y, expanded in Phase 11); setup wizard creates legal entities via gRPC call to consolidation service (T059e).
+- [ ] T059e [P] Implement `SetupWizardService` gRPC handlers in `services/identity/src/handlers/setup_handler.rs` — `CreateLegalEntity` (name + base currency → calls consolidation service gRPC `CreateLegalEntity`; consolidation service owns the `legal_entities` table, scaffolded in T059x–T059z, expanded in Phase 11), `ImportCoATemplate` (industry/region selection → bulk-insert accounts into GL), `ConfigureFiscalCalendar` (year start, periods), `ImportOpeningBalances` (CSV upload: account code + balance + cutoff date → creates opening journal entry in GL)
 - [ ] T059f [P] Create `web/src/pages/setup/SetupWizard.tsx` — multi-step wizard: (1) Create Legal Entity (name + currency selector), (2) Select CoA Template (industry dropdown → preview accounts → customize), (3) Configure Fiscal Calendar (year start, period count), (4) Import Opening Balances (CSV upload with validation table), (5) Confirmation + redirect to dashboard
 - [ ] T059g [P] Write setup wizard integration tests: provision tenant via CLI → complete wizard via API → verify legal entity exists, CoA imported, fiscal calendar configured, opening balances posted as journal entry, tenant status = OPERATIONAL in `services/identity/tests/setup_test.rs`
 
@@ -227,7 +235,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 2
 
-- [ ] T087 [US2] Create AP database migrations for `vendors`, `ap_invoices`, `ap_invoice_lines`, `payments`, `payment_invoice_allocations` tables in `services/ap/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ap_invoices` for optimistic locking (EC-4); include `created_by_user_id UUID` and `department_id UUID` columns on `ap_invoices` and `payments` for RBAC scope filtering (FR-031); include `payment_method VARCHAR(32) NOT NULL` column on `payments` with CHECK constraint in ('CHECK', 'WIRE_TRANSFER', 'ACH', 'CASH')
+- [ ] T087 [US2] Create AP database migrations for `vendors`, `ap_invoices`, `ap_invoice_lines`, `payments`, `payment_invoice_allocations` tables in `services/ap/migrations/` — include `version INT NOT NULL DEFAULT 1` column on `ap_invoices` for optimistic locking (EC-4); include `created_by_user_id UUID` and `department_id UUID` columns on `ap_invoices` and `payments` for RBAC scope filtering (FR-031); include `payment_method VARCHAR(32) NOT NULL` column on `payments` with CHECK constraint in ('CHECK', 'WIRE_TRANSFER', 'ACH', 'CASH'); include `reconciliation_status VARCHAR(16) NOT NULL DEFAULT 'UNRECONCILED'` column on `payments` with CHECK constraint in ('UNRECONCILED', 'MATCHED', 'RECONCILED') for bank reconciliation tracking (FR-009)
 - [ ] T088 [US2] Implement `Vendor` model and `VendorRepository` (CRUD, search by name, active filtering) in `services/ap/src/repository/vendor_repo.rs`
 - [ ] T089 [P] [US2] Implement `ApInvoice` model and `InvoiceRepository` (CRUD, status transitions, vendor filtering, date range, optimistic locking on update) in `services/ap/src/repository/invoice_repo.rs`
 - [ ] T090 [P] [US2] Implement `Payment` model and `PaymentRepository` (CRUD, batch operations, vendor filtering) in `services/ap/src/repository/payment_repo.rs`
@@ -403,7 +411,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 4
 
-- [ ] T173 [US4] Scaffold procurement service structure in `services/procurement/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
+- [ ] T173 [US4] Expand procurement service (scaffolded in T058) with full handler/service/repository layers in `services/procurement/`
 - [ ] T174 [US4] Create procurement database migrations for `purchase_requisitions`, `requisition_lines`, `purchase_orders`, `purchase_order_lines`, `goods_receipts`, `goods_receipt_lines` tables in `services/procurement/migrations/` — include `created_by_user_id UUID` and `department_id UUID` columns on `purchase_requisitions`, `purchase_orders`, and `goods_receipts` for RBAC scope filtering (FR-031)
 - [ ] T175 [US4] Implement `PurchaseRequisition` model and `RequisitionRepository` (CRUD, status transitions, requester filtering) in `services/procurement/src/repository/requisition_repo.rs`
 - [ ] T176 [P] [US4] Implement `PurchaseOrder` model and `PurchaseOrderRepository` (CRUD, status transitions, vendor filtering, quantity tracking) in `services/procurement/src/repository/po_repo.rs`
@@ -414,7 +422,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T181 [US4] Implement procurement-workflow integration (requisition approval routing based on amount/category) in `services/procurement/src/service/requisition_service.rs`
 - [ ] T182 [US4] Implement 3-way match service (compare PO quantities, goods receipt quantities, and AP invoice quantities/amounts) in `services/procurement/src/service/match_service.rs`
 - [ ] T182a [US4] Add procurement gRPC client to AP service (`ProcurementMatchClient` with `crates/resilience` circuit breaker interceptor per Constitution Principle V) in `services/ap/src/clients/procurement_client.rs`
-- [ ] T182b [US2] Integrate 3-way match check into AP invoice posting: when invoice references a PO, call procurement `MatchService.ValidateMatch()` before allowing post; on failure, place invoice on HOLD (FR-019) in `services/ap/src/service/invoice_service.rs`
+- [ ] T182b [US2,US4] Integrate 3-way match check into AP invoice posting: when invoice references a PO, call procurement `MatchService.ValidateMatch()` before allowing post; on failure, place invoice on HOLD (FR-019) in `services/ap/src/service/invoice_service.rs`
 - [ ] T183 [US4] Implement procurement NATS event publisher using outbox pattern (`RequisitionApproved`, `POIssued`, `GoodsReceived` — write to outbox within same tx, relay publishes to NATS) in `services/procurement/src/events.rs`
 - [ ] T184 [US4] Implement `RequisitionService` gRPC handlers in `services/procurement/src/handlers/requisition_handler.rs`
 - [ ] T185 [P] [US4] Implement `PurchaseOrderService` gRPC handlers in `services/procurement/src/handlers/po_handler.rs`
@@ -536,8 +544,8 @@ skip from test tasks directly to implementation tasks without user sign-off.
 
 ### Backend Implementation for User Story 7
 
-- [ ] T239 [US7] Scaffold consolidation service structure in `services/consolidation/` with `Cargo.toml`, `src/main.rs`, `src/handlers/`, `src/service/`, `src/repository/`, `migrations/`
-- [ ] T240 [US7] Create consolidation database migrations for `legal_entities`, `exchange_rates`, `consolidation_runs` tables in `services/consolidation/migrations/` — `consolidation_runs` MUST include columns: `run_id`, `reporting_period`, `parent_entity_id`, `included_subsidiary_ids` (JSONB), `exchange_rates_used` (JSONB), `eliminations_applied` (JSONB), `run_status`, `completed_at`
+- [ ] T239 [US7] Expand consolidation service (scaffolded in T059x) with full service/repository/handler structure for multi-org and multi-currency features in `services/consolidation/`
+- [ ] T240 [US7] Create consolidation database migrations for `exchange_rates`, `consolidation_runs` tables (`legal_entities` table already exists from T059y) in `services/consolidation/migrations/` — `consolidation_runs` MUST include columns: `run_id`, `reporting_period`, `parent_entity_id`, `included_subsidiary_ids` (JSONB), `exchange_rates_used` (JSONB), `eliminations_applied` (JSONB), `run_status`, `completed_at`
 - [ ] T241 [US7] Implement `LegalEntity` model and `LegalEntityRepository` (CRUD, hierarchy, active filtering) in `services/consolidation/src/repository/entity_repo.rs`
 - [ ] T242 [P] [US7] Implement `ExchangeRate` model and `ExchangeRateRepository` (CRUD, find current rate, effective date filtering) in `services/consolidation/src/repository/rate_repo.rs`
 - [ ] T242a [P] [US7] Implement `ConsolidationRun` model and `ConsolidationRunRepository` (create run, update status, list by period/entity, store exchange rates and eliminations as JSONB) in `services/consolidation/src/repository/run_repo.rs`
@@ -657,7 +665,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T304 [P] Implement comprehensive error handling with user-friendly error messages in `web/src/components/ErrorBoundary.tsx` and API error interceptors
 - [ ] T032a [P] Write multi-tenant isolation tests in `services/gateway/tests/tenant_isolation_test.rs` — authenticate as tenant A user, verify GL/AP/AR endpoints return only tenant A data; attempt to access tenant B resources by ID, verify 403 Forbidden; verify no cross-tenant data leakage in list endpoints
 
-> **Note**: T302 (OpenTelemetry) and T303 (Prometheus metrics) have been promoted to Phase 1 as T016a (`crates/observability/`) to satisfy Constitution Principle V ("day-one observability"). All service bootstrap tasks now include observability integration.
+> *(T302/T303 were consolidated into T016a in Phase 1 — no separate tasks remain.)*
 
 ### Edge Case Validation (Cross-Cutting)
 
@@ -701,6 +709,7 @@ skip from test tasks directly to implementation tasks without user sign-off.
 - [ ] T308a Write performance benchmark suite in `tests/perf/`:
   - SC-002: 100 concurrent users submitting transactions, 95th percentile response time < 3s
   - SC-003: Generate standard reports against 100K posted transactions, assert < 10s
+  - SC-005: Approval workflow routing + notification delivery, assert end-to-end < 5s
   - SC-009: Period-end close with 1K+ assets and 10K+ journal entries, assert < 5 minutes
   - Use `criterion` for Rust benchmarks and `k6` or `wrk` for HTTP load testing
 - [ ] T308b [US1,US2,US3] Write end-to-end audit trail validation tests: (1) create AP invoice → post → trace from invoice through GL journal entry to trial balance; (2) create AR invoice → post → trace through GL to financial report; (3) verify source document linkage is bidirectional. In `tests/e2e/audit_trail_test.rs`
@@ -739,7 +748,7 @@ Phase 1 (Setup)
             │       └── Phase 5 (US3 - AR)
             ├── Phase 6 (US8 - RBAC) [parallel, after Phase 2]
             ├── Phase 7 (US9 - Workflow) [parallel, after Phase 2]
-            ├── Phase 12 (US10 - Tax) [needs US2 + US3]
+            ├── Phase 12 (US10 - Tax) [needs Phase 4 (US2/AP) + Phase 5 (US3/AR)]
             ├── Phase 9 (US5 - Reporting) [needs US1 + US2 + US3]
             ├── Phase 10 (US6 - Budget) [needs US1]
             ├── Phase 11 (US7 - Multi-Org) [needs US1]
