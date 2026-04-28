@@ -14,7 +14,7 @@ Build a comprehensive cloud-based ERP system cloning Oracle Fusion Cloud ERP's f
 **Language/Version**: Rust (latest stable, MSRV pinned in `rust-toolchain.toml`)
 **Primary Dependencies**:
 - Backend: axum 0.8, tonic 0.12, prost 0.13, tokio 1.x, sqlx 0.8 (PostgreSQL, compile-time checked), serde 1.x, tracing 0.1, uuid 1.x, chrono 0.4
-- Frontend: React 19, TypeScript 5.x, TanStack Query, Recharts, TanStack Table
+- Frontend: React 19, TypeScript 5.x, TanStack Query, Zustand, Recharts, TanStack Table
 - Additional: lettre 0.1 (SMTP email), genpdf 0.2 (PDF generation), rust_xlsxwriter 0.8 (XLSX export), moka 0.12 (caching), criterion 0.5 (benchmarking)
 **Storage**: PostgreSQL 16 (one database per service per tenant for strict isolation)
 **Message Broker**: NATS 2 with JetStream (selected for lightweight footprint, native JetStream durable messaging, and first-class Rust client via `async-nats`)

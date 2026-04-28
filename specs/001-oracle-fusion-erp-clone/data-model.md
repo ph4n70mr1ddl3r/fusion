@@ -87,6 +87,20 @@ STRAIGHT_LINE | DECLINING_BALANCE
 | used_at | TIMESTAMPTZ | NULLABLE | |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
+### departments
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| tenant_id | UUID | FK → tenants.id, NOT NULL | Owning tenant |
+| code | VARCHAR(50) | NOT NULL | Short code (e.g., "SALES", "ENG") |
+| name | VARCHAR(255) | NOT NULL | Display name |
+| parent_department_id | UUID | FK → departments.id, NULLABLE | For hierarchy |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+**Validation**: `code` must be unique per tenant.
+
 ---
 
 ## General Ledger Service
@@ -144,12 +158,40 @@ STRAIGHT_LINE | DECLINING_BALANCE
 open ──[close_period]──→ closed ──[permanent_close]──→ permanently_closed
 ```
 
+### fiscal_calendars
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| name | VARCHAR(100) | NOT NULL | e.g., "FY 2026" |
+| year_start_date | DATE | NOT NULL | First day of fiscal year |
+| period_count | INTEGER | NOT NULL, DEFAULT 12 | Number of periods |
+| period_type | VARCHAR(20) | NOT NULL, DEFAULT 'monthly' | monthly, quarterly |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'draft' | draft, active, archived |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+**Validation**: `year_start_date` must be unique per tenant.
+
+### chart_of_accounts_templates
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| name | VARCHAR(100) | NOT NULL | e.g., "US Retail - Standard" |
+| industry | VARCHAR(100) | NULLABLE | Industry classification |
+| region | VARCHAR(100) | NULLABLE | Geographic region |
+| accounts | JSONB | NOT NULL | Array of account definitions: `[{"code":"1000","name":"Cash","type":"asset"},...]` |
+| is_active | BOOLEAN | NOT NULL, DEFAULT true | |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
 ### journal_entries
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PK | |
-| entry_number | VARCHAR(50) | NOT NULL, UNIQUE | Auto-generated: "JE-YYYYMMDD-NNNN" |
+| entry_number | VARCHAR(50) | NOT NULL, UNIQUE | Auto-generated per FR-044: "JE-{year}-{sequence:04d}" (e.g., "JE-2026-0001") |
 | description | TEXT | NULLABLE | |
 | entry_date | DATE | NOT NULL | |
 | period_id | UUID | FK → financial_periods.id, NOT NULL | |
@@ -752,6 +794,26 @@ draft ──[submit]──→ pending_approval ──[approve]──→ approved
 
 **Validation**: Date ranges for the same code must not overlap. Only one active rate per jurisdiction+category at any given date.
 
+### tax_transactions
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK | |
+| tax_code_id | UUID | FK → tax_codes.id, NOT NULL | Applied tax rate |
+| source_document_type | VARCHAR(50) | NOT NULL | 'ap_invoice', 'ar_invoice' |
+| source_document_id | UUID | NOT NULL | ID of the originating document |
+| line_item_id | UUID | NOT NULL | ID of the specific line item |
+| tax_base_amount | NUMERIC(19,4) | NOT NULL | Amount before tax |
+| tax_amount | NUMERIC(19,4) | NOT NULL | Calculated tax amount |
+| effective_rate | NUMERIC(7,4) | NOT NULL | Rate at time of calculation |
+| transaction_date | DATE | NOT NULL | |
+| jurisdiction | VARCHAR(100) | NOT NULL | |
+| created_by_user_id | UUID | NOT NULL | |
+| department_id | UUID | NOT NULL | |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+**Indexes**: `INDEX(tax_code_id, transaction_date)`, `INDEX(source_document_type, source_document_id)`
+
 ---
 
 ## Workflow Service
@@ -861,10 +923,12 @@ draft ──[submit]──→ pending_approval ──[approve]──→ approved
 fusion_platform (identity service):
   tenants ← users ← refresh_tokens
                   ← password_reset_tokens
+         ← departments
 
 GL Service:
   segment_configs ← chart_of_accounts (parent self-ref)
-  financial_periods ← journal_entries ← journal_entry_lines → chart_of_accounts
+  fiscal_calendars → financial_periods ← journal_entries ← journal_entry_lines → chart_of_accounts
+  chart_of_accounts_templates
   journal_entries → journal_entry_source (audit trail)
 
 AP Service:
@@ -893,7 +957,7 @@ Fixed Asset Service:
   fixed_assets → asset_disposals
 
 Tax Service:
-  tax_codes
+  tax_codes ← tax_transactions
 
 Workflow Service:
   approval_workflows ← approval_workflow_steps
